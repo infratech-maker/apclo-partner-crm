@@ -70,7 +70,7 @@ const columns: ColumnDef<Lead>[] = [
       <DataTableColumnHeader column={column} title="ID" />
     ),
     cell: ({ row }) => (
-      <span className="font-mono text-xs">{row.getValue("id").slice(0, 8)}...</span>
+      <span className="font-mono text-xs">{String(row.getValue("id")).slice(0, 8)}...</span>
     ),
   },
   {

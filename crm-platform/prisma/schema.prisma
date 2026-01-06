@@ -1,0 +1,747 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Enums
+// ============================================
+
+enum OrganizationType {
+  DIRECT // 直営
+  PARTNER_1ST // 1次代理店
+  PARTNER_2ND // 2次代理店
+  UNIT // ユニット
+  INDIVIDUAL // 個人
+}
+
+enum CustomerStatus {
+  LEAD // リード（未対応）
+  CONTACTED // 接触済み
+  QUALIFIED // 案件化
+  PROPOSAL // 提案中
+  NEGOTIATION // 商談中
+  WON // 獲得
+  LOST // 失注
+  CLOSED // クローズ
+}
+
+enum DealStatus {
+  PROSPECTING
+  QUALIFICATION
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum ProductCategory {
+  SERVICE
+  HARDWARE
+  SOFTWARE
+  CONSULTING
+  OTHER
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  MULTISELECT
+  TEXTAREA
+  BOOLEAN
+  CURRENCY
+}
+
+enum KpiType {
+  TOSS_COUNT
+  TOSS_RATE
+  PRE_CONFIRMED
+  POST_CONFIRMED
+  ET_COUNT
+  ACTIVATION_SAME_DAY
+  ACTIVATION_NEXT_DAY
+  CONVERSION_RATE
+}
+
+enum PlItemType {
+  REVENUE
+  GROSS_PROFIT
+  OPERATING_PROFIT
+  COST_OF_SALES
+  SGA
+  AGENCY_PAYMENT
+  OTHER_INCOME
+  OTHER_EXPENSE
+}
+
+enum ScrapingJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+enum ActivityType {
+  CALL // 架電
+  VISIT // 訪問
+  EMAIL // メール
+  CHAT // チャット/SNS
+  OTHER // その他
+}
+
+// ============================================
+// Core Models: Tenant & Account Management
+// ============================================
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users                   User[]
+  organizations           Organization[]
+  roles                   Role[]
+  permissions             Permission[]
+  products                Product[]
+  customers               Customer[]
+  leads                   Lead[]
+  deals                   Deal[]
+  kpiRecords              KpiRecord[]
+  plRecords               PlRecord[]
+  simulations             Simulation[]
+  scrapingJobs            ScrapingJob[]
+  productFieldDefinitions ProductFieldDefinition[]
+  customerFieldValues     CustomerFieldValue[]
+  organizationClosures    OrganizationClosure[]
+  userOrganizations       UserOrganization[]
+  userRoles               UserRole[]
+  rolePermissions         RolePermission[]
+  invitations             Invitation[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String
+  email        String
+  passwordHash String
+  name         String
+  phoneNumber  String?
+  avatarUrl    String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Manager-Subordinate relationship (self-referencing)
+  managerId    String?
+  manager      User?   @relation("ManagerSubordinates", fields: [managerId], references: [id])
+  subordinates User[]  @relation("ManagerSubordinates")
+
+  // Relations
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userOrganizations UserOrganization[]
+  userRoles         UserRole[]
+  userRolesAssigned UserRole[]         @relation("UserRoleAssignedBy")
+  invitationsSent   Invitation[]       @relation("InvitedBy")
+
+  // Audit fields (created/updated by)
+  createdCustomers    Customer[]    @relation("CustomerCreatedBy")
+  updatedCustomers    Customer[]    @relation("CustomerUpdatedBy")
+  createdLeads        Lead[]        @relation("LeadCreatedBy")
+  updatedLeads        Lead[]        @relation("LeadUpdatedBy")
+  createdDeals        Deal[]        @relation("DealCreatedBy")
+  activityLogs        ActivityLog[]
+  updatedDeals        Deal[]        @relation("DealUpdatedBy")
+  createdKpiRecords   KpiRecord[]   @relation("KpiRecordCreatedBy")
+  createdPlRecords    PlRecord[]    @relation("PlRecordCreatedBy")
+  createdSimulations  Simulation[]  @relation("SimulationCreatedBy")
+  createdScrapingJobs ScrapingJob[] @relation("ScrapingJobCreatedBy")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([managerId])
+  @@map("users")
+}
+
+model Organization {
+  id        String           @id @default(uuid())
+  tenantId  String
+  name      String
+  code      String?
+  type      OrganizationType
+  parentId  String?
+  path      String?
+  level     Int              @default(0)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Relations
+  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent            Organization?         @relation("OrganizationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children          Organization[]        @relation("OrganizationHierarchy")
+  userOrganizations UserOrganization[]
+  customers         Customer[]
+  deals             Deal[]
+  leads             Lead[]
+  kpiRecords        KpiRecord[]
+  plRecords         PlRecord[]
+  ancestors         OrganizationClosure[] @relation("Ancestor")
+  descendants       OrganizationClosure[] @relation("Descendant")
+  invitations       Invitation[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, parentId])
+  @@index([tenantId, type])
+  @@index([path])
+  @@map("organizations")
+}
+
+model UserOrganization {
+  id             String   @id @default(uuid())
+  userId         String
+  organizationId String
+  tenantId       String
+  isPrimary      Boolean  @default(false)
+  roleInOrg      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([tenantId])
+  @@index([userId, isPrimary])
+  @@map("user_organizations")
+}
+
+model Role {
+  id           String   @id @default(uuid())
+  tenantId     String
+  name         String
+  description  String?
+  isSystemRole Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+  invitations     Invitation[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id                 String   @id @default(uuid())
+  tenantId           String
+  resource           String
+  action             String
+  description        String?
+  isSystemPermission Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+
+  @@unique([tenantId, resource, action])
+  @@index([tenantId])
+  @@index([tenantId, resource])
+  @@map("permissions")
+}
+
+model UserRole {
+  id         String    @id @default(uuid())
+  userId     String
+  roleId     String
+  tenantId   String
+  assignedBy String?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedByUser User?  @relation("UserRoleAssignedBy", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([tenantId])
+  @@index([userId, expiresAt])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  tenantId     String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@index([tenantId])
+  @@map("role_permissions")
+}
+
+model Invitation {
+  id             String           @id @default(uuid())
+  email          String
+  token          String           @unique
+  tenantId       String
+  organizationId String?
+  roleId         String?
+  expiresAt      DateTime
+  status         InvitationStatus @default(PENDING)
+  invitedBy      String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  role         Role?         @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  inviter      User          @relation("InvitedBy", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([email])
+  @@index([token])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("invitations")
+}
+
+// ============================================
+// Organization Hierarchy: Closure Table
+// ============================================
+
+model OrganizationClosure {
+  tenantId     String
+  ancestorId   String
+  descendantId String
+  depth        Int
+
+  // Relations
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ancestor   Organization @relation("Ancestor", fields: [ancestorId], references: [id], onDelete: Cascade)
+  descendant Organization @relation("Descendant", fields: [descendantId], references: [id], onDelete: Cascade)
+
+  @@id([ancestorId, descendantId])
+  @@index([tenantId])
+  @@index([tenantId, ancestorId])
+  @@index([tenantId, descendantId])
+  @@index([depth])
+  @@map("organization_closure")
+}
+
+// ============================================
+// Product & Dynamic Fields
+// ============================================
+
+model Product {
+  id          String          @id @default(uuid())
+  tenantId    String
+  name        String
+  code        String
+  category    ProductCategory
+  description String?
+  basePrice   Decimal?        @db.Decimal(15, 2)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fieldDefinitions ProductFieldDefinition[]
+  customers        Customer[]
+  deals            Deal[]
+  kpiRecords       KpiRecord[]
+  plRecords        PlRecord[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("products")
+}
+
+model ProductFieldDefinition {
+  id           String    @id @default(uuid())
+  tenantId     String
+  productId    String
+  fieldKey     String
+  fieldLabel   String
+  fieldType    FieldType
+  isRequired   Boolean   @default(false)
+  isUnique     Boolean   @default(false)
+  defaultValue String?
+  options      Json? // Array<{ label: string; value: string }>
+  displayOrder Int       @default(0)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  tenant  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values  CustomerFieldValue[]
+
+  @@index([tenantId])
+  @@index([productId])
+  @@map("product_field_definitions")
+}
+
+model CustomerFieldValue {
+  id                String   @id @default(uuid())
+  tenantId          String
+  customerId        String
+  fieldDefinitionId String
+  value             Json
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer        Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  fieldDefinition ProductFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, fieldDefinitionId])
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([fieldDefinitionId])
+  @@map("customer_field_values")
+}
+
+// ============================================
+// Customer & Lead Management
+// ============================================
+
+model Customer {
+  id             String         @id @default(uuid())
+  tenantId       String
+  phoneNumber    String?
+  email          String?
+  name           String?
+  productId      String?
+  organizationId String?
+  status         CustomerStatus @default(LEAD)
+  source         String?
+  notes          String?
+  tags           Json? // string[]
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  // Audit fields
+  createdBy String?
+  updatedBy String?
+
+  // Relations
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product      Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  organization Organization?        @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  fieldValues  CustomerFieldValue[]
+  kpiRecords   KpiRecord[]
+  deals        Deal[]
+  plRecords    PlRecord[]
+  creator      User?                @relation("CustomerCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updater      User?                @relation("CustomerUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, phoneNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, organizationId])
+  @@index([phoneNumber])
+  @@map("customers")
+}
+
+model Lead {
+  id            String   @id @default(uuid())
+  tenantId      String
+  scrapingJobId String?
+  source        String
+  data          Json
+  status        String   @default("new")
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Audit fields
+  createdBy String?
+  updatedBy String?
+
+  // Organization relation
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  // Master Lead relation (必須)
+  masterLeadId String
+  masterLead   MasterLead @relation(fields: [masterLeadId], references: [id], onDelete: Cascade)
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scrapingJob  ScrapingJob?  @relation(fields: [scrapingJobId], references: [id], onDelete: SetNull)
+  creator      User?         @relation("LeadCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updater      User?         @relation("LeadUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  activityLogs ActivityLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([scrapingJobId])
+  @@index([organizationId])
+  @@index([masterLeadId])
+  @@map("leads")
+}
+
+// ============================================
+// Deal Management
+// ============================================
+
+model Deal {
+  id                String     @id @default(uuid())
+  tenantId          String
+  customerId        String
+  productId         String?
+  organizationId    String?
+  name              String
+  status            DealStatus @default(PROSPECTING)
+  amount            Decimal?   @db.Decimal(15, 2)
+  expectedCloseDate DateTime?  @db.Date
+  actualCloseDate   DateTime?  @db.Date
+  probability       Decimal?   @db.Decimal(5, 2) // 0-100 (%)
+  notes             String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  // Audit fields
+  createdBy String?
+  updatedBy String?
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer     Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  creator      User?         @relation("DealCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updater      User?         @relation("DealUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([customerId])
+  @@index([organizationId])
+  @@map("deals")
+}
+
+// ============================================
+// KPI & PL Management
+// ============================================
+
+model KpiRecord {
+  id             String   @id @default(uuid())
+  tenantId       String
+  organizationId String?
+  productId      String?
+  customerId     String?
+  kpiType        KpiType
+  value          Decimal  @db.Decimal(15, 4)
+  recordDate     DateTime @db.Date
+  periodType     String
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Audit fields
+  createdBy String?
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  creator      User?         @relation("KpiRecordCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, organizationId, recordDate])
+  @@index([tenantId, productId, recordDate])
+  @@map("kpi_records")
+}
+
+model PlRecord {
+  id             String     @id @default(uuid())
+  tenantId       String
+  organizationId String?
+  productId      String?
+  customerId     String?
+  itemType       PlItemType
+  amount         Decimal    @db.Decimal(15, 2)
+  recordDate     DateTime   @db.Date
+  periodType     String
+  isActual       String     @default("actual") // "actual" | "forecast" | "simulation"
+  simulationId   String?
+  description    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  // Audit fields
+  createdBy String?
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  simulation   Simulation?   @relation(fields: [simulationId], references: [id], onDelete: SetNull)
+  creator      User?         @relation("PlRecordCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, organizationId, recordDate])
+  @@index([tenantId, productId, recordDate])
+  @@map("pl_records")
+}
+
+model Simulation {
+  id                       String   @id @default(uuid())
+  tenantId                 String
+  name                     String
+  description              String?
+  parameters               String // JSON string
+  projectedRevenue         Decimal? @db.Decimal(15, 2)
+  projectedGrossProfit     Decimal? @db.Decimal(15, 2)
+  projectedOperatingProfit Decimal? @db.Decimal(15, 2)
+  createdBy                String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  // Relations
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator   User?      @relation("SimulationCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  plRecords PlRecord[]
+
+  @@index([tenantId])
+  @@map("simulations")
+}
+
+// ============================================
+// Master Lead Management
+// ============================================
+
+model MasterLead {
+  id          String  @id @default(cuid())
+  companyName String // 検索用
+  phone       String? // 重複チェック用
+  address     String?
+  source      String // "tabelog.com" 等
+  data        Json // 詳細データ（leads.dataと同じ構造）
+
+  // 作成日時
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // リレーション
+  leads Lead[]
+
+  // インデックス（検索・重複チェック高速化）
+  @@index([companyName])
+  @@index([phone])
+  @@map("master_leads")
+}
+
+// ============================================
+// Scraper Management
+// ============================================
+
+model ScrapingJob {
+  id          String            @id @default(uuid())
+  tenantId    String
+  url         String
+  status      ScrapingJobStatus @default(PENDING)
+  bullmqJobId String?
+  result      Json?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Audit fields
+  createdBy String?
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leads   Lead[]
+  creator User?  @relation("ScrapingJobCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("scraping_jobs")
+}
+
+// ============================================
+// Activity Log
+// ============================================
+
+model ActivityLog {
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  type   ActivityType @default(CALL)
+  status String // その活動時点でのステータス（結果）
+  note   String? // 活動メモ
+
+  // 誰がやったか
+  tenantId       String
+  organizationId String?
+  userId         String
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([tenantId, organizationId])
+  @@map("activity_logs")
+}

@@ -55,16 +55,45 @@ async function getTenantId(tenantId?: string): Promise<string | null> {
  * @throws Error テナントが存在しない、または無効な場合
  */
 async function validateTenant(tenantId: string): Promise<void> {
-  const tenant = await db
-    .select()
-    .from(tenants)
-    .where(
-      sql`${tenants.id} = ${tenantId}::uuid AND ${tenants.isActive} = true`
-    )
-    .limit(1);
+  try {
+    const tenant = await db
+      .select({
+        id: tenants.id,
+        isActive: tenants.isActive,
+      })
+      .from(tenants)
+      .where(
+        eq(tenants.id, tenantId)
+      )
+      .limit(1);
 
-  if (tenant.length === 0) {
-    throw new Error(`Invalid or inactive tenant: ${tenantId}`);
+    if (tenant.length === 0) {
+      throw new Error(`Invalid tenant: ${tenantId}`);
+    }
+
+    // isActiveがfalseの場合はエラー（isActiveカラムが存在する場合のみ）
+    if (tenant[0]?.isActive === false) {
+      throw new Error(`Inactive tenant: ${tenantId}`);
+    }
+  } catch (error: any) {
+    // is_activeカラムが存在しない場合は、idのみで検証
+    if (error?.code === '42703' || error?.message?.includes('is_active')) {
+      const tenant = await db
+        .select({
+          id: tenants.id,
+        })
+        .from(tenants)
+        .where(
+          eq(tenants.id, tenantId)
+        )
+        .limit(1);
+
+      if (tenant.length === 0) {
+        throw new Error(`Invalid tenant: ${tenantId}`);
+      }
+    } else {
+      throw error;
+    }
   }
 }
 

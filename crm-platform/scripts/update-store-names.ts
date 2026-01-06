@@ -35,6 +35,7 @@ function smartMerge(existingData: any, scrapedData: any): any {
     "transport",
     "business_hours",
     "budget",
+    "website", // 公式アカウント（HPURL）
     "related_stores",
     "is_franchise",
     "access",
@@ -166,7 +167,7 @@ async function updateStoreNames() {
         const result = await scrapeTabelogStore(lead.source);
 
         // 既存データを取得
-        const existingData = lead.data || {};
+        const existingData = (lead.data as any) || {};
         const existingName = existingData.name || "";
 
         // 新しい店舗名が取得できたか確認
@@ -292,5 +293,7 @@ updateStoreNames()
 
     process.exit(1);
   });
+
+
 
 

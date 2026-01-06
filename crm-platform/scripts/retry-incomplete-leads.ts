@@ -34,6 +34,7 @@ function smartMerge(existingData: any, scrapedData: any): any {
     "transport",
     "business_hours",
     "budget",
+    "website", // 公式アカウント（HPURL）
     "related_stores",
     "is_franchise",
     "access",

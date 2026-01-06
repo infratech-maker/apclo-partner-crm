@@ -12,7 +12,7 @@ import { chromium, Browser } from "playwright";
 import { eq, sql, inArray } from "drizzle-orm";
 
 const MAX_PAGES = 100; // 最大ページ数（大幅拡大）
-const DELAY_MS = 2000; // ページ間の待機時間（マナー）
+const DELAY_MS = 3000; // ページ間の待機時間（マナー）- 電話番号収集と統一
 const PROGRESS_FILE = resolve(__dirname, "../logs/last-collected-page.txt"); // 進捗記録ファイル
 
 function sleep(ms: number) {
@@ -97,8 +97,15 @@ async function importNewOpenStores() {
   let browser: Browser | null = null;
 
   try {
-    await withTenant(async (tenantId) => {
+    // テナントIDを環境変数または引数から取得
+    const envTenantId = process.env.TEST_TENANT_ID;
+    const tenantId = (envTenantId && envTenantId.trim() !== "" && envTenantId !== "00000000-0000-0000-0000-000000000000")
+      ? envTenantId 
+      : "ff424270-d1ee-4a72-9f57-984066600402";
+    
+    await withTenant(async (resolvedTenantId) => {
       console.log("🚀 ニューオープンリストの収集を開始します...");
+      console.log(`   テナントID: ${resolvedTenantId}`);
       
       // 開始通知
       await sendSlackNotification(
@@ -383,7 +390,7 @@ async function importNewOpenStores() {
         `⏱️ 処理時間: ${minutes}分${seconds}秒`,
         registered > 0 ? "good" : "warning"
       );
-    });
+    }, tenantId);
   } catch (error) {
     console.error("❌ エラーが発生しました:", error);
     
@@ -396,8 +403,8 @@ async function importNewOpenStores() {
     
     throw error;
   } finally {
-    if (browser) {
-      await browser.close();
+    if (browser !== null) {
+      await (browser as Browser).close();
     }
   }
 }

@@ -17,6 +17,7 @@ export interface ScrapingResult {
   transport?: string;
   business_hours?: string;
   budget?: string;
+  website?: string; // 公式アカウント（HPURL）
   related_stores?: string | string[];
   is_franchise?: boolean;
   url: string;
@@ -333,7 +334,10 @@ export async function scrapeTabelogStore(url: string): Promise<ScrapingResult> {
         const holidayElement = holidayRow.locator("td").first();
         const holidayText = await holidayElement.textContent();
         if (holidayText) {
-          result.regular_holiday = holidayText.trim();
+          const trimmed = holidayText.trim();
+          result.regular_holiday = trimmed;
+          // 日本語フィールド名も追加
+          (result as any).定休日 = trimmed;
         }
       }
     } catch (error) {
@@ -344,7 +348,11 @@ export async function scrapeTabelogStore(url: string): Promise<ScrapingResult> {
     try {
       const transportText = await getTableValue('交通手段');
       if (transportText) {
-        result.transport = transportText;
+        const trimmed = transportText.trim();
+        result.transport = trimmed;
+        // 日本語フィールド名も追加
+        (result as any).交通手段 = trimmed;
+        (result as any).交通アクセス = trimmed;
       }
     } catch (error) {
       console.warn("Failed to get transport:", error);
@@ -355,7 +363,10 @@ export async function scrapeTabelogStore(url: string): Promise<ScrapingResult> {
       // クラス指定なしのため、テーブル検索のみ
       const businessHoursText = await getTableValue('営業時間');
       if (businessHoursText) {
-        result.business_hours = businessHoursText;
+        const trimmed = businessHoursText.trim();
+        result.business_hours = trimmed;
+        // 日本語フィールド名も追加
+        (result as any).営業時間 = trimmed;
       }
     } catch (error) {
       console.warn("Failed to get business hours:", error);
@@ -374,6 +385,79 @@ export async function scrapeTabelogStore(url: string): Promise<ScrapingResult> {
       }
     } catch (error) {
       console.warn("Failed to get budget:", error);
+    }
+
+    // 公式アカウント（HPURL）を取得
+    try {
+      let websiteUrl: string | null = null;
+
+      // 方法1: 「公式サイト」というテキストを持つリンクを探す
+      const officialSiteLink = page.locator('a:has-text("公式サイト"), a:has-text("ホームページ"), a:has-text("公式HP")').first();
+      if (await officialSiteLink.count() > 0) {
+        const href = await officialSiteLink.getAttribute("href");
+        if (href) {
+          // 相対URLの場合は絶対URLに変換
+          try {
+            const urlObj = new URL(href, url);
+            websiteUrl = urlObj.href;
+          } catch {
+            websiteUrl = href;
+          }
+        }
+      }
+
+      // 方法2: テーブル内の「公式サイト」行を探す
+      if (!websiteUrl) {
+        const websiteRow = page.locator("table.rstinfo-table tr").filter({ hasText: /(公式サイト|ホームページ|公式HP|公式アカウント)/ });
+        if (await websiteRow.count() > 0) {
+          // 行内のリンクを探す
+          const linkInRow = websiteRow.locator("td a").first();
+          if (await linkInRow.count() > 0) {
+            const href = await linkInRow.getAttribute("href");
+            if (href) {
+              try {
+                const urlObj = new URL(href, url);
+                websiteUrl = urlObj.href;
+              } catch {
+                websiteUrl = href;
+              }
+            }
+          } else {
+            // リンクがない場合はテキストを取得
+            const textElement = websiteRow.locator("td").first();
+            const text = await textElement.textContent();
+            if (text) {
+              // URLパターンを抽出
+              const urlPattern = /https?:\/\/[^\s]+/;
+              const match = text.match(urlPattern);
+              if (match) {
+                websiteUrl = match[0];
+              }
+            }
+          }
+        }
+      }
+
+      // 方法3: メタタグから取得（og:urlやcanonicalなど）
+      if (!websiteUrl) {
+        try {
+          const ogUrl = await page.locator('meta[property="og:url"]').getAttribute("content");
+          if (ogUrl && !ogUrl.includes("tabelog.com")) {
+            websiteUrl = ogUrl;
+          }
+        } catch {
+          // メタタグ取得失敗は無視
+        }
+      }
+
+      if (websiteUrl) {
+        result.website = websiteUrl;
+        // 日本語フィールド名も追加
+        (result as any).公式HP = websiteUrl;
+        (result as any).公式アカウント = websiteUrl;
+      }
+    } catch (error) {
+      console.warn("Failed to get website:", error);
     }
 
     // 関連店舗情報を取得（ハイブリッドロジック）
@@ -1636,14 +1720,14 @@ export async function scrapeUbereatsStore(url: string): Promise<ScrapingResult> 
       url: url,
       name: name,
       address: address, // 純粋な住所文字列のみ（座標は含まない、クリーニング済み）
-      category: categories.length > 0 ? categories.join(', ') : null,
+      category: categories.length > 0 ? categories.join(', ') : undefined,
       phone: storeData.phone || storeData.phoneNumber || storeData.contactPhone || null,
-      budget: priceRange,
-      business_hours: businessHours,
-      transport: null, // UberEatsの場合は交通手段は常にnull（駅からの徒歩分数は取得困難）
-      related_stores: brandInfo || null,
-      latitude: location.latitude || null,
-      longitude: location.longitude || null,
+      budget: priceRange || undefined,
+      business_hours: businessHours || undefined,
+      transport: undefined, // UberEatsの場合は交通手段は常にundefined（駅からの徒歩分数は取得困難）
+      related_stores: brandInfo || undefined,
+      latitude: location.latitude || undefined,
+      longitude: location.longitude || undefined,
       rating: rating,
       rating_count: ratingCount,
     };
@@ -1664,7 +1748,7 @@ export async function scrapeUbereatsStore(url: string): Promise<ScrapingResult> 
       price_range: priceRange || null,
       categories: categories.length > 0 ? categories.join(', ') : null,
       brand_name: brandInfo || null,
-      transport: null, // UberEatsの場合は交通手段は常にnull
+      transport: "", // UberEatsの場合は交通手段は常に空文字列
       business_hours: businessHours || null,
     };
 

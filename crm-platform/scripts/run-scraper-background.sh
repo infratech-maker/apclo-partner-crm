@@ -22,3 +22,5 @@ echo "🛑 停止: kill $PID"
 # PIDをファイルに保存
 echo $PID > ./logs/scraper.pid
 
+
+

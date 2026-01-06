@@ -76,3 +76,5 @@ echo "2. Commit the changes: git add -A && git commit -m \"Bump version to $NEW_
 echo "3. Create a tag: git tag -a v$NEW_VERSION -m \"Release version $NEW_VERSION\""
 echo "4. Push changes and tag: git push && git push --tags"
 
+
+

@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="BARIUS（バリアス）はNortonのセキュリティと24時間生活サポートが一体となった新サービス。初月含む2ヶ月無料キャンペーン実施中。">
+    <meta name="version" content="1.9.0">
+    <title>BARIUS | 暮らしのバリアを、その手に。</title>
+    <!-- Version: 1.9.0 -->
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@700&family=Outfit:wght@400;600&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    
+    <style>
+        :root {
+            --barius-grad: linear-gradient(135deg, #FFD700 0%, #FF8C00 50%, #FF69B4 100%);
+            --barius-color-main: #FF8C00;
+            --barius-shadow: 0 10px 40px -10px rgba(255, 140, 0, 0.15);
+            --bg-base: #fdfdfd;
+            --white: #ffffff;
+            --text-main: #1a1a1a;
+            --text-sub: #666;
+            --radius-L: 32px;
+            --radius-M: 16px;
+        }
+
+        /* Reset & Base */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: var(--bg-base); color: var(--text-main); font-family: 'Noto Sans JP', sans-serif;
+            line-height: 1.8; overflow-x: hidden; -webkit-font-smoothing: antialiased;
+            position: relative;
+            background-image: 
+                linear-gradient(135deg, rgba(255, 215, 0, 0.04) 0%, rgba(255, 140, 0, 0.03) 25%, rgba(255, 105, 180, 0.04) 50%, rgba(255, 140, 0, 0.03) 75%, rgba(255, 215, 0, 0.04) 100%),
+                radial-gradient(circle at 20% 30%, rgba(255, 215, 0, 0.06), transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(255, 105, 180, 0.06), transparent 50%),
+                url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+            background-size: 
+                100% 100%,
+                800px 800px,
+                800px 800px,
+                200px 200px;
+            background-position: 
+                0 0,
+                0 0,
+                100% 100%,
+                0 0;
+            background-repeat: 
+                no-repeat,
+                no-repeat,
+                no-repeat,
+                repeat;
+            background-attachment: 
+                fixed,
+                fixed,
+                fixed,
+                fixed;
+        }
+        
+        /* 背景ロゴのスタイル調整（固定表示・被らないように間隔を空けて配置） */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("barius_logodesign_fx-ol.png");
+            /* ロゴサイズ + 間隔を考慮したサイズ設定（ロゴ幅約140px + 間隔200px = 340px） */
+            background-size: 340px 340px;
+            background-position: 0 0;
+            background-repeat: repeat;
+            background-attachment: fixed;
+            opacity: 0.15;
+            z-index: 0;
+            pointer-events: none;
+            filter: blur(0.2px);
+            transform: rotate(-15deg);
+            transform-origin: 0 0;
+        }
+        
+        /* パターンのオフセット調整（被らないようにオフセット） */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("barius_logodesign_fx-ol.png");
+            /* 1層目と被らないように、半分の位置にオフセット */
+            background-size: 340px 340px;
+            background-position: 170px 170px;
+            background-repeat: repeat;
+            background-attachment: fixed;
+            opacity: 0.12;
+            z-index: 0;
+            pointer-events: none;
+            filter: blur(0.2px);
+            transform: rotate(-15deg);
+            transform-origin: 0 0;
+        }
+        
+        /* コンテンツを前面に */
+        main, header, footer {
+            position: relative;
+            z-index: 1;
+        }
+        a { color: inherit; transition: 0.3s; }
+        a:hover { opacity: 0.7; }
+
+        .inner { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+        /* reveal: 一括表示用, reveal-step: 順番表示用 */
+        .reveal, .reveal-step { opacity: 0; transform: translateY(30px); will-change: transform, opacity; }
+
+        /* Header */
+        header { position: fixed; width: 100%; top: 0; z-index: 1000; padding: 20px 0; transition: 0.4s; }
+        header.scrolled { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); padding: 15px 0; box-shadow: 0 2px 20px rgba(0,0,0,0.05); }
+        .header-inner { display: flex; justify-content: space-between; align-items: center; }
+        .logo-img { height: 60px; width: auto; display: block; }
+        .nav-btn {
+            background: var(--text-main); color: #fff; padding: 10px 24px; border-radius: 50px;
+            text-decoration: none; font-size: 0.85rem; font-weight: bold; transition: 0.3s;
+        }
+        .nav-btn:hover { background: #333; transform: translateY(-2px); opacity: 1; }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center;
+            background: radial-gradient(circle at 50% 40%, rgba(255, 215, 0, 0.08), transparent 60%);
+            padding-top: 80px;
+        }
+        .hero-title { font-family: 'Shippori Mincho', serif; font-size: clamp(2.4rem, 6vw, 4.5rem); line-height: 1.4; margin: 20px 0; font-weight: 700; }
+        .hero-title span { background: var(--barius-grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* ヒーローテキストの段階的表示アニメーション */
+        .hero-text-part1 {
+            opacity: 0;
+            animation: fadeInUp 1s ease-out 0.5s forwards;
+        }
+        .hero-text-part2 {
+            opacity: 0;
+            animation: fadeInUp 1s ease-out 1.2s forwards;
+        }
+        .hero-text-katachi {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: floatIn 1.5s ease-out 1.2s forwards;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes floatIn {
+            0% {
+                opacity: 0;
+                transform: translateY(30px) scale(0.9);
+            }
+            60% {
+                opacity: 1;
+                transform: translateY(-5px) scale(1.05);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        /* "カタチ"の浮遊アニメーション（表示後） */
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+        
+        .hero-text-katachi.animated {
+            animation: floatIn 1.5s ease-out 1.2s forwards, float 3s ease-in-out 2.7s infinite;
+        }
+
+        /* Sections General */
+        .section { padding: 100px 0; }
+        .section-header { text-align: center; margin-bottom: 60px; }
+        .en-title { font-family: 'Outfit'; color: var(--barius-color-main); letter-spacing: 0.2em; font-size: 0.8rem; display: block; margin-bottom: 10px; }
+        .jp-title { font-family: 'Shippori Mincho'; font-size: clamp(2rem, 4vw, 2.5rem); position: relative; display: inline-block; }
+        
+        /* --- Reasons (選ばれる理由) --- */
+        .reasons-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
+        .reason-card {
+            background: var(--white); padding: 40px 30px; border-radius: var(--radius-L);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.02); border: 1px solid #f0f0f0; text-align: center;
+        }
+        .reason-icon { font-size: 2.5rem; margin-bottom: 20px; display: block; }
+        .reason-head { font-weight: 700; margin-bottom: 15px; font-size: 1.2rem; }
+        .reason-desc { font-size: 0.9rem; color: var(--text-sub); line-height: 1.8; text-align: left; }
+
+        /* --- Service Content (サービス内容) --- */
+        .service-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        .service-box {
+            background: var(--white); border-radius: var(--radius-L); padding: 40px;
+            border: 1px solid #eee; display: flex; gap: 20px; align-items: flex-start;
+            transition: transform 0.3s;
+        }
+        .service-box:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.03); }
+        .svc-img { width: 60px; height: 60px; object-fit: contain; flex-shrink: 0; }
+        .svc-img-large { width: 90px; height: 90px; object-fit: contain; flex-shrink: 0; }
+        .svc-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+        .svc-provider { font-size: 0.7rem; background: #f0f0f0; padding: 2px 8px; border-radius: 4px; color: #666; font-weight: normal; }
+        .svc-text { font-size: 0.9rem; color: var(--text-sub); line-height: 1.7; }
+
+        /* --- Reviews (お客様の声) --- */
+        .review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+        .review-card {
+            background: var(--white); padding: 35px; border-radius: var(--radius-M);
+            border-left: 5px solid var(--barius-color-main);
+            box-shadow: 0 5px 25px rgba(0,0,0,0.03); transition: transform 0.3s;
+        }
+        .review-card:hover { transform: translateY(-3px); }
+        .review-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .review-tag { font-size: 0.75rem; font-weight: bold; background: #FFF4E6; color: #FF8C00; padding: 4px 12px; border-radius: 20px; }
+        .review-stars { color: #FFD700; font-size: 0.9rem; letter-spacing: 2px; }
+        .review-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 10px; display: block; line-height: 1.5; }
+        .review-text { font-size: 0.9rem; color: var(--text-sub); }
+
+        /* --- Plan Lineup --- */
+        .plan-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; align-items: start; }
+        .plan-card {
+            background: var(--white); border-radius: var(--radius-L); padding: 50px 30px;
+            border: 1px solid #eee; position: relative;
+        }
+        .plan-card.premium {
+            grid-column: 2; border: 2px solid transparent; transform: scale(1.05); z-index: 2;
+            background-image: linear-gradient(#fff, #fff), var(--barius-grad);
+            background-origin: border-box; background-clip: padding-box, border-box;
+            box-shadow: var(--barius-shadow);
+        }
+        .rec-badge {
+            position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+            background: var(--barius-grad); color: #fff; padding: 5px 20px; border-radius: 20px;
+            font-size: 0.8rem; font-weight: bold; white-space: nowrap;
+        }
+        .price-area { text-align: center; margin: 30px 0; font-family: 'Outfit'; }
+        .price-val { font-size: 3rem; font-weight: 700; }
+        .plan-list { list-style: none; margin-top: 30px; }
+        .plan-item { padding: 15px 0; border-bottom: 1px dotted #ddd; display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 500; }
+        .plan-item img { width: 36px; height: 36px; object-fit: contain; }
+        .plan-item-detail { padding-left: 34px; padding-top: 8px; padding-bottom: 8px; font-size: 0.85rem; color: var(--text-sub); list-style: none; }
+        .plan-item-detail li { padding: 5px 0; display: flex; align-items: center; gap: 8px; }
+        .plan-item-detail li::before { content: "•"; color: var(--barius-color-main); font-weight: bold; margin-right: 5px; }
+
+        /* --- Flow (ご利用の流れ) --- */
+        .flow-wrapper { display: flex; flex-direction: column; gap: 20px; }
+        @media (min-width: 768px) {
+            .flow-wrapper { flex-direction: row; justify-content: space-between; gap: 30px; }
+        }
+        .flow-step {
+            flex: 1; background: var(--white); padding: 30px 20px; border-radius: var(--radius-M);
+            border: 1px solid #eee; text-align: center; position: relative;
+        }
+        .flow-num {
+            background: var(--barius-grad); color: #fff; width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-weight: 900;
+            font-size: 1.1rem; margin: 0 auto 15px auto; box-shadow: 0 4px 10px rgba(255, 140, 0, 0.3);
+        }
+        .flow-icon { font-size: 1.5rem; color: #333; margin-bottom: 10px; display: block; }
+        .flow-title { font-weight: bold; display: block; margin-bottom: 10px; font-size: 1rem; }
+        .flow-text { font-size: 0.85rem; color: var(--text-sub); }
+        /* PC Arrow */
+        @media (min-width: 768px) {
+            .flow-step:not(:last-child)::after {
+                content: "\f054"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+                position: absolute; right: -20px; top: 50%; transform: translateY(-50%);
+                color: #ccc; z-index: 1;
+                /* 矢印も一緒にフェードインさせるため初期状態を透明に */
+                opacity: 0; transition: opacity 0.8s;
+            }
+            /* 親要素が表示されたら矢印も表示 */
+            .flow-step.shown:not(:last-child)::after {
+                opacity: 1;
+            }
+        }
+
+        /* --- FAQ (よくある質問) --- */
+        .faq-container { max-width: 800px; margin: 0 auto; }
+        .faq-item {
+            margin-bottom: 20px; background: var(--white); border-radius: var(--radius-M);
+            padding: 25px; border: 1px solid #eee; transition: 0.3s;
+        }
+        .faq-item:hover { border-color: #ffd700; }
+        .faq-q {
+            font-weight: bold; font-size: 1.05rem; margin-bottom: 10px;
+            display: flex; align-items: flex-start; gap: 15px;
+        }
+        .faq-q span { color: var(--barius-color-main); font-weight: 900; font-size: 1.2rem; }
+        .faq-a { font-size: 0.95rem; color: var(--text-sub); padding-left: 28px; line-height: 1.8; }
+
+        /* --- CTA --- */
+        .cta-section { text-align: center; padding: 120px 0 80px 0; background: linear-gradient(to top, rgba(255,240,245,0.5), transparent); }
+        .cta-btn {
+            display: inline-block; padding: 22px 80px; background: var(--barius-grad); color: #fff;
+            border-radius: 100px; text-decoration: none; font-weight: bold; font-size: 1.2rem;
+            box-shadow: 0 15px 30px rgba(255, 105, 180, 0.3); transition: 0.3s;
+        }
+        .cta-btn:hover { transform: scale(1.05); box-shadow: 0 20px 50px rgba(255, 105, 180, 0.4); opacity: 1; }
+        
+        /* Footer Links */
+        .footer-links { margin-top: 30px; display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; }
+        .footer-link { font-size: 0.9rem; color: #666; text-decoration: underline; }
+        .footer-link:hover { color: #FF8C00; }
+
+        /* Mobile */
+        @media (max-width: 960px) {
+            .reasons-grid, .service-grid, .plan-wrap, .review-grid { grid-template-columns: 1fr; gap: 40px; }
+            .plan-card.premium { grid-column: 1; transform: scale(1); }
+            .hero-title { font-size: 2.5rem; }
+            .flow-step:not(:last-child)::after { display: none; }
+            .flow-wrapper { gap: 15px; }
+            .footer-links { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header">
+        <div class="inner header-inner">
+            <img src="barius_logodesign_fx-ol.png" alt="BARIUS" class="logo-img">
+            <a href="https://tayori.com/f/barius" class="nav-btn" target="_blank">キャンペーン申込</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="inner reveal">
+                <p style="font-family:'Outfit'; letter-spacing:0.3em; color:#888; font-size:0.9rem;">Barrier + Us</p>
+                <h1 class="hero-title">
+                    <span class="hero-text-part1">安心と快適を届ける、<br>新しい安心の</span> <span class="hero-text-katachi">"カタチ"</span>
+                </h1>
+                <p style="color:#666;">セキュリティと生活サポートをひとつに。<br>あなたの日々を、もっと自由に。</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="inner">
+                <div class="section-header reveal">
+                    <span class="en">REASONS</span>
+                    <h2 class="jp-title">BARIUSが選ばれる理由</h2>
+                </div>
+                <div class="reasons-grid reveal">
+                    <div class="reason-card">
+                        <span class="reason-icon">🛡️</span>
+                        <h3 class="reason-head">信頼のセキュリティ</h3>
+                        <p class="reason-desc">世界的に利用されているNorton製品を活用し、確かな安心と安全をお届けします。</p>
+                    </div>
+                    <div class="reason-card">
+                        <span class="reason-icon">🤝</span>
+                        <h3 class="reason-head">包括的なサポート</h3>
+                        <p class="reason-desc">個人情報保護から端末のパフォーマンス改善、ライフサポートまで幅広くカバーします。</p>
+                    </div>
+                    <div class="reason-card">
+                        <span class="reason-icon">✨</span>
+                        <h3 class="reason-head">独自の組み合わせ</h3>
+                        <p class="reason-desc">セキュリティと生活支援をまとめた、日本初の新しいスタンダードサービスです。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" style="background: #fafafa;">
+            <div class="inner">
+                <div class="section-header reveal">
+                    <span class="en">SERVICES</span>
+                    <h2 class="jp-title">BARIUSのサービス内容</h2>
+                </div>
+                <div class="service-grid reveal">
+                    <div class="service-box">
+                        <img src="ChatGPT Image 2025年9月25日 10_45_23.png" class="svc-img">
+                        <div>
+                            <div class="svc-title">24時間緊急駆け付け <span class="svc-provider">Tアシスト</span></div>
+                            <p class="svc-text">24時間365日、電話一本で対応可能。水道・カギ・電気・ガスなどの住まいのトラブルに、専門スタッフが迅速に駆け付け解決をサポートします。（8ヶ国語対応）</p>
+                        </div>
+                    </div>
+                    <div class="service-box">
+                        <img src="ノートン 360 デラックス.jpg" alt="Norton 360 Deluxe" class="svc-img">
+                        <div>
+                            <div class="svc-title">ノートン 360 デラックス <span class="svc-provider">Norton</span></div>
+                            <p class="svc-text">世界最強クラスでパソコン・スマホを守ります。オールインワンなので、インターネットを使うすべての方にお勧めします。</p>
+                        </div>
+                    </div>
+                    <div class="service-box">
+                        <img src="ノートン ID アドバイザー.jpg" alt="Norton ID Advisor" class="svc-img">
+                        <div>
+                            <div class="svc-title">ノートン ID アドバイザー <span class="svc-provider">Norton</span></div>
+                            <p class="svc-text">個人情報の流出を検知し、流出後も適切な対応策を電話で受けられます。</p>
+                        </div>
+                    </div>
+                    <div class="service-box">
+                        <img src="N-KeepCleaner_logo.png" class="svc-img">
+                        <div>
+                            <div class="svc-title">N-KeepCleaner <span class="svc-provider">TNI</span></div>
+                            <p class="svc-text">スマートフォンのストレージやメモリを管理し、デバイスのパフォーマンスを向上させるための機能を提供します。</p>
+                        </div>
+                    </div>
+                    <div class="service-box">
+                        <img src="ChatGPT Image 2025年9月24日 19_19_20.jpg" class="svc-img-large">
+                        <div>
+                            <div class="svc-title">BARIUS Club PASS <span class="svc-provider">Tアシスト</span></div>
+                            <p class="svc-text">旅行、ホテル、映画、家事代行など、多彩なライフスタイルメニューを会員限定の優待割引価格でご利用いただけます。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="inner">
+                <div class="section-header reveal">
+                    <span class="en">USER VOICES</span>
+                    <h2 class="jp-title">導入ユーザー様の声</h2>
+                </div>
+                <div class="review-grid reveal">
+                    <div class="review-card">
+                        <div class="review-head">
+                            <span class="review-tag">子育て・見守り</span>
+                            <div class="review-stars">★★★★★</div>
+                        </div>
+                        <span class="review-title">子供のネット利用も安心</span>
+                        <p class="review-text">
+                            子供がスマホを持ち始めたので、有害サイトへのアクセスが心配でした。Nortonの保護機能はもちろん、鍵の紛失など家のトラブル対応もセットなので、共働きの我が家には心強い味方です。
+                        </p>
+                    </div>
+                    <div class="review-card">
+                        <div class="review-head">
+                            <span class="review-tag">離れて暮らす親へ</span>
+                            <div class="review-stars">★★★★★</div>
+                        </div>
+                        <span class="review-title">PCトラブルの相談窓口に</span>
+                        <p class="review-text">
+                            実家の親はPC操作が苦手で、よく電話がかかってきていました。「24時間サポート」がついているBARIUSを導入してからは、専門家が丁寧に教えてくれるので、私自身の負担も減り助かっています。
+                        </p>
+                    </div>
+                    <div class="review-card">
+                        <div class="review-head">
+                            <span class="review-tag">コスパ重視・単身</span>
+                            <div class="review-stars">★★★★★</div>
+                        </div>
+                        <span class="review-title">優待だけで元が取れる</span>
+                        <p class="review-text">
+                            セキュリティ目的で契約しましたが、Club PASSの映画割引やホテル優待が意外と豪華。月に数回映画を見るだけで月額料金以上のメリットが出るので、実質無料で守られている感覚です。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="plans" style="background: #fafafa;">
+            <div class="inner">
+                <div class="section-header reveal">
+                    <span class="en">PLAN LINEUP</span>
+                    <h2 class="jp-title">プランラインナップ</h2>
+                    <p style="color:#FF69B4; font-weight:bold; margin-top:10px;">初月含む2ヶ月無料キャンペーン実施中！</p>
+                </div>
+
+                <div class="plan-wrap">
+                    <div class="plan-card reveal">
+                        <h3 style="text-align:center;">スタンダードプラン</h3>
+                        <div class="price-area">
+                            <span class="price-val">2,480</span> 円(税別)/月
+                        </div>
+                        <ul class="plan-list">
+                            <li class="plan-item">
+                                <img src="ノートン ID アドバイザー.jpg"> 
+                                <div style="flex: 1;">
+                                    <strong>VPN ＋ ノートン ID アドバイザー</strong>
+                                    <ul class="plan-item-detail" style="margin-top: 8px;">
+                                        <li>デバイス保護</li>
+                                        <li>Wi-Fi対策 (VPN)</li>
+                                        <li>個人情報流出対策</li>
+                                    </ul>
+                                </div>
+                            </li>
+                            <li class="plan-item"><img src="N-KeepCleaner_logo.png"> N-KeepCleaner</li>
+                            <li class="plan-item"><img src="ChatGPT Image 2025年9月25日 10_45_23.png"> 24時間駆け付け</li>
+                            <li class="plan-item"><img src="ChatGPT Image 2025年9月24日 19_19_20.jpg"> BARIUS Club Pass</li>
+                        </ul>
+                    </div>
+
+                    <div class="plan-card premium reveal">
+                        <div class="rec-badge">RECOMMENDED</div>
+                        <h3 style="text-align:center;">プレミアムプラン</h3>
+                        <div class="price-area">
+                            <span class="price-val">3,480</span> 円(税別)/月
+                        </div>
+                        <ul class="plan-list">
+                            <li class="plan-item">
+                                <img src="ノートン 360 デラックス.jpg"> 
+                                <div style="flex: 1;">
+                                    <strong>ノートン 360 デラックス ＋ ノートン ID アドバイザー</strong>
+                                    <ul class="plan-item-detail" style="margin-top: 8px;">
+                                        <li>デバイス保護</li>
+                                        <li>Wi-Fi対策(VPN)</li>
+                                        <li>個人情報流出対策</li>
+                                    </ul>
+                                </div>
+                            </li>
+                            <li class="plan-item"><img src="N-KeepCleaner_logo.png"> N-KeepCleaner</li>
+                            <li class="plan-item"><img src="ChatGPT Image 2025年9月25日 10_45_23.png"> 24時間駆け付け</li>
+                            <li class="plan-item"><img src="ChatGPT Image 2025年9月24日 19_19_20.jpg"> BARIUS Club Pass</li>
+                        </ul>
+                    </div>
+
+                    <div class="reveal" style="display:flex; align-items:center;">
+                        <div style="background:#fffbf0; padding:30px; border-radius:20px; border:1px dashed #FFD700;">
+                            <h4 style="font-weight:bold; margin-bottom:10px;">💡 実質無料のヒミツ</h4>
+                            <p style="font-size:0.9rem; color:#666;">Club PASSの優待（映画1000円引、宿泊割引等）を使えば、月額料金以上の還元を受けることも可能です。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="inner">
+                <div class="section-header reveal">
+                    <span class="en">FLOW</span>
+                    <h2 class="jp-title">ご利用の流れ</h2>
+                </div>
+                <div class="flow-wrapper">
+                    <div class="flow-step reveal-step">
+                        <div class="flow-num">1</div>
+                        <i class="fa-regular fa-envelope flow-icon"></i>
+                        <span class="flow-title">お問い合わせ・申込</span>
+                        <p class="flow-text">Webフォームよりご連絡ください。最適なプランをご提案します。</p>
+                    </div>
+                    <div class="flow-step reveal-step">
+                        <div class="flow-num">2</div>
+                        <i class="fa-solid fa-phone-volume flow-icon"></i>
+                        <span class="flow-title">ご案内・手続き</span>
+                        <p class="flow-text">お申し込み後、サポートセンターよりお電話にて手続きをご案内いたします。</p>
+                    </div>
+                    <div class="flow-step reveal-step">
+                        <div class="flow-num">3</div>
+                        <i class="fa-solid fa-download flow-icon"></i>
+                        <span class="flow-title">情報受領・インストール</span>
+                        <p class="flow-text">お手続き完了後、ライセンス情報をお届けします。アプリをDLしログインしてください。</p>
+                    </div>
+                    <div class="flow-step reveal-step">
+                        <div class="flow-num">4</div>
+                        <i class="fa-solid fa-check flow-icon"></i>
+                        <span class="flow-title">サービス開始</span>
+                        <p class="flow-text">即座に保護が開始されます。不明点はサポートが対応します。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" style="background: #fafafa;">
+            <div class="inner">
+                <div class="section-header reveal">
+                    <span class="en">Q&A</span>
+                    <h2 class="jp-title">よくある質問</h2>
+                </div>
+                <div class="faq-container reveal">
+                    <div class="faq-item">
+                        <div class="faq-q"><span>Q.</span> 既に他のウイルス対策ソフトを入れていますが、乗り換えは面倒ですか？</div>
+                        <div class="faq-a">いいえ、非常に簡単です。既存ソフトのアンインストール手順もサポートチームが丁寧にご案内いたしますので、スムーズに切り替えが可能です。</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-q"><span>Q.</span> スマホや機械の操作が苦手ですが、使いこなせるでしょうか？</div>
+                        <div class="faq-a">はい、BARIUSは「アプリを入れてログインするだけ」で自動的に保護が始まります。難しい設定は必要ありませんし、お電話でのサポートも可能ですので、スマホを持つすべての世代の方に安心してお使いいただけます。</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-q"><span>Q.</span> 動作が重くなりませんか？</div>
+                        <div class="faq-a">近年のNorton製品は非常に軽量化されており、バックグラウンドで静かに動作するため、快適にご利用いただけます。</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" style="background: #fff;">
+            <div class="inner">
+                <div class="section-header reveal">
+                    <span class="en">SUPPORT</span>
+                    <h2 class="jp-title">製品別テクニカルサポート</h2>
+                </div>
+                
+                <div class="support-grid reveal" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; max-width: 900px; margin: 0 auto;">
+                    
+                    <div class="support-card" style="background: var(--white); border: 1px solid #eee; padding: 30px; border-radius: var(--radius-M); box-shadow: 0 5px 25px rgba(0,0,0,0.03);">
+                        <h3 style="font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #FFD700; display: inline-block;">ノートン 360 デラックス / ノートン VPN スタンダード をご利用の方</h3>
+                        <p style="font-size: 0.95rem; margin-bottom: 10px; margin-top: 15px;"><strong>ノートンライフロック オンラインサービス サポート窓口</strong></p>
+                        <p style="font-size: 0.9rem; color: var(--text-sub); margin-bottom: 15px;">受付時間：365日 9:00～17:00</p>
+                        <a href="https://bbsoft.bbss.co.jp/contact/inquiryInput_apclo.do" target="_blank" style="display: inline-block; margin-top: 15px; color: var(--barius-color-main); text-decoration: underline; font-weight: bold; font-size: 0.9rem; transition: 0.3s;">
+                            お問い合わせフォームはこちら <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.8rem;"></i>
+                        </a>
+                    </div>
+
+                    <div class="support-card" style="background: var(--white); border: 1px solid #eee; padding: 30px; border-radius: var(--radius-M); box-shadow: 0 5px 25px rgba(0,0,0,0.03);">
+                        <h3 style="font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #FF69B4; display: inline-block;">ノートン ID アドバイザー をご利用の方</h3>
+                        <p style="font-size: 0.95rem; margin-bottom: 10px; margin-top: 15px;"><strong>ノートンサポートセンター</strong></p>
+                        <ul style="list-style: none; font-size: 0.9rem; color: var(--text-sub); padding: 0; margin: 0;">
+                            <li style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-phone" style="color: var(--barius-color-main);"></i> 
+                                <strong style="color: var(--text-main);">03-5767-4780</strong>
+                            </li>
+                            <li style="margin-bottom: 8px; padding-left: 24px;">（365日 10:00～21:00）</li>
+                            <li style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-comments" style="color: var(--barius-color-main);"></i> 
+                                <span>チャット：24時間対応</span>
+                            </li>
+                        </ul>
+                        <p style="font-size: 0.8rem; color: #999; margin-top: 15px; font-style: italic;">※こちらは販売店様向け窓口ではなく、お客様向け窓口の案内です</p>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <div class="inner reveal">
+                <h2 style="font-family:'Shippori Mincho'; font-size:2rem; margin-bottom:40px;">暮らしのバリアを、その手に。</h2>
+                <a href="https://tayori.com/f/barius" class="cta-btn" target="_blank">無料キャンペーンで申し込む</a>
+                <p style="margin-top:40px; color:#999; font-size:0.8rem;">
+                    運営元：Tアシスト株式会社<br>営業時間：平日 10:00〜18:00
+                </p>
+                <div class="footer-links">
+                    <a href="https://tayori.com/f/barius" target="_blank" class="footer-link">サービスに関するお問い合わせはこちら</a>
+                    <a href="https://tayori.com/f/barius-churn" target="_blank" class="footer-link">解約に関するお問い合わせはこちら</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer style="text-align:center; padding:50px 24px 50px 24px; border-top:1px solid #eee; background-color: #fff; color:#ccc; font-size:0.75rem; margin-top: 0; position: relative; z-index: 2;">
+        <div class="inner" style="max-width: 1140px; margin: 0 auto;">
+            &copy; 2025 BARIUS | Norton Partner Program<br>
+            <span style="font-size:0.7rem; opacity:0.7;">Version 1.9.0</span>
+        </div>
+    </footer>
+
+    <script>
+        // Header Scroll
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('header');
+            window.scrollY > 50 ? header.classList.add('scrolled') : header.classList.remove('scrolled');
+        });
+        
+        // Animations
+        gsap.registerPlugin(ScrollTrigger);
+
+        // 通常の一括表示アニメーション
+        gsap.utils.toArray(".reveal").forEach(el => {
+            gsap.to(el, {
+                scrollTrigger: { trigger: el, start: "top 85%" },
+                opacity: 1, y: 0, duration: 1.2, ease: "power3.out"
+            });
+        });
+
+        // ご利用の流れ用の順番表示アニメーション (Stagger)
+        gsap.from(".reveal-step", {
+            scrollTrigger: {
+                trigger: ".flow-wrapper", // 親要素が見えたら発火
+                start: "top 85%",
+            },
+            y: 30,
+            opacity: 0,
+            duration: 0.8,
+            ease: "power3.out",
+            stagger: 0.3, // 0.3秒ずつずらして表示
+            onStart: () => {
+                // アニメーション開始時に矢印を表示するためのクラスを付与
+                document.querySelectorAll('.flow-step').forEach(el => el.classList.add('shown'));
+            }
+        });
+    </script>
+</body>
+</html>

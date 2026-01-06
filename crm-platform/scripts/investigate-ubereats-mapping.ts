@@ -287,7 +287,7 @@ function mapToExistingColumns(storeData: any): UberEatsStoreData['mapped'] {
   mapped.phone = storeData?.phone || storeData?.phoneNumber || storeData?.contactPhone || null;
 
   // 5. 予算 (budget) - $マーク数を日本円レンジに変換
-  mapped.budget = convertPriceRange(storeData?.priceRange || storeData?.price);
+  mapped.budget = convertPriceRange(storeData?.priceRange || storeData?.price) || undefined;
 
   // 6. 評価 (rating) - 追加フィールド
   if (storeData?.rating) {
@@ -310,17 +310,17 @@ function mapToExistingColumns(storeData: any): UberEatsStoreData['mapped'] {
     storeData?.hours || 
     storeData?.businessHours || 
     storeData?.openingHours
-  );
+  ) || undefined;
 
   // 9. 交通手段 (transport) - 固定文言
   mapped.transport = 'UberEatsデリバリー';
 
-  // 10. オープン日 (open_date) - 不明項目（デフォルト: null）
-  mapped.open_date = null;
+  // 10. オープン日 (open_date) - 不明項目（デフォルト: undefined）
+  mapped.open_date = undefined;
 
   // 11. 関連店舗 (related_stores) - ブランド情報を探索
   const brandInfo = extractBrandInfo(storeData);
-  mapped.related_stores = brandInfo || null;
+  mapped.related_stores = brandInfo || undefined;
 
   return mapped;
 }

@@ -35,12 +35,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# drizzle
-/drizzle
+# backups
+/backups/
 
-# python
-/scripts/venv/
-/scripts/*.csv
-/scripts/__pycache__/
-*.pyc
-
+# logs
+/logs/

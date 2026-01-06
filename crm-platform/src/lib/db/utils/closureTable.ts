@@ -55,6 +55,7 @@ export async function addOrganization(
   // Closure Tableを更新
   // 1. 自己参照 (depth=0)
   await db.insert(organizationClosure).values({
+    tenantId: newOrg.tenantId,
     ancestorId: newOrg.id,
     descendantId: newOrg.id,
     depth: 0,
@@ -73,6 +74,7 @@ export async function addOrganization(
     if (ancestors.length > 0) {
       await db.insert(organizationClosure).values(
         ancestors.map((anc) => ({
+          tenantId: newOrg.tenantId,
           ancestorId: anc.ancestorId,
           descendantId: newOrg.id,
           depth: (anc.depth || 0) + 1,

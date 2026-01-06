@@ -51,10 +51,10 @@ export async function example2_ExplicitTenantId() {
 export async function example3_MultipleQueries() {
   const result = await withTenant(async (tenantId) => {
     const orgs = await db.select().from(organizations);
-    const customers = await db.select().from(customers);
-    const products = await db.select().from(products);
+    const customerList = await db.select().from(customers);
+    const productList = await db.select().from(products);
     
-    return { orgs, customers, products };
+    return { orgs, customers: customerList, products: productList };
   });
   
   return result;

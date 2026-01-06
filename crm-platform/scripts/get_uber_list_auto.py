@@ -2,6 +2,9 @@ import time
 import pandas as pd
 import random
 import os
+import threading
+import requests
+from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -28,7 +31,101 @@ SCROLL_COUNT = 30
 
 # 保存ファイル名
 OUTPUT_FILE = "ubereats_list_auto_collected.csv"
+
+# Slack通知設定
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
+NOTIFICATION_INTERVAL_HOURS = 1  # 1時間ごとに通知
 # ==========================================
+
+def send_slack_notification(message: str, color: str = "info"):
+    """Slack通知を送信"""
+    if not SLACK_WEBHOOK_URL:
+        return
+    
+    try:
+        color_map = {
+            "good": "#36a64f",
+            "warning": "#ff9900",
+            "danger": "#ff0000",
+            "info": "#439fe0",
+        }
+        
+        payload = {
+            "attachments": [
+                {
+                    "color": color_map.get(color, "#439fe0"),
+                    "text": message,
+                    "footer": "UberEats List Collection (Auto)",
+                    "ts": int(time.time()),
+                }
+            ]
+        }
+        
+        response = requests.post(
+            SLACK_WEBHOOK_URL,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            print(f"⚠️ Slack通知の送信に失敗しました: {response.status_code}")
+    except Exception as e:
+        print(f"⚠️ Slack通知の送信中にエラーが発生しました: {e}")
+
+def get_progress_stats(output_path: str, total_locations: int, current_location_index: int, start_time: float):
+    """進行状況の統計を取得"""
+    try:
+        if os.path.exists(output_path):
+            df = pd.read_csv(output_path)
+            collected_count = len(df)
+        else:
+            collected_count = 0
+        
+        elapsed_time = time.time() - start_time
+        elapsed_hours = elapsed_time / 3600
+        elapsed_minutes = (elapsed_time % 3600) / 60
+        
+        progress_percent = (current_location_index / total_locations * 100) if total_locations > 0 else 0
+        
+        return {
+            "collected_count": collected_count,
+            "current_location": current_location_index,
+            "total_locations": total_locations,
+            "progress_percent": progress_percent,
+            "elapsed_hours": int(elapsed_hours),
+            "elapsed_minutes": int(elapsed_minutes),
+        }
+    except Exception as e:
+        print(f"⚠️ 統計取得エラー: {e}")
+        return None
+
+def hourly_notification_worker(output_path: str, total_locations: int, current_location_index_ref: list, start_time_ref: list, stop_event: threading.Event):
+    """1時間ごとにSlack通知を送信するワーカースレッド"""
+    while not stop_event.is_set():
+        # 1時間待機
+        stop_event.wait(NOTIFICATION_INTERVAL_HOURS * 3600)
+        
+        if stop_event.is_set():
+            break
+        
+        # 進行状況を取得
+        stats = get_progress_stats(
+            output_path,
+            total_locations,
+            current_location_index_ref[0] if current_location_index_ref else 0,
+            start_time_ref[0] if start_time_ref else time.time()
+        )
+        
+        if stats:
+            message = (
+                f"📊 UberEatsリスト収集 - 進行状況レポート\n\n"
+                f"⏱️ 経過時間: {stats['elapsed_hours']}時間{stats['elapsed_minutes']}分\n"
+                f"📍 処理済みエリア: {stats['current_location']}/{stats['total_locations']} ({stats['progress_percent']:.1f}%)\n"
+                f"✅ 収集済みURL数: {stats['collected_count']}件\n"
+                f"🔄 処理継続中..."
+            )
+            send_slack_notification(message, "info")
 
 def setup_driver():
     options = Options()
@@ -149,11 +246,42 @@ def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     output_path = os.path.join(base_dir, OUTPUT_FILE)
     
+    # 開始時刻を記録
+    start_time = time.time()
+    total_locations = len(TARGET_LOCATIONS)
+    current_location_index = 0
+    
+    # 進行状況を共有するための参照（リストでラップ）
+    current_location_index_ref = [0]
+    start_time_ref = [start_time]
+    
+    # 通知スレッドの停止イベント
+    stop_event = threading.Event()
+    
+    # 1時間ごとの通知スレッドを開始
+    notification_thread = threading.Thread(
+        target=hourly_notification_worker,
+        args=(output_path, total_locations, current_location_index_ref, start_time_ref, stop_event),
+        daemon=True
+    )
+    notification_thread.start()
+    
+    # 開始通知
+    start_message = (
+        f"🚀 UberEatsリスト収集を開始しました\n\n"
+        f"📍 対象エリア数: {total_locations}エリア\n"
+        f"📋 エリアリスト: {', '.join(TARGET_LOCATIONS[:5])}{'...' if len(TARGET_LOCATIONS) > 5 else ''}\n"
+        f"⏱️ 開始時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    send_slack_notification(start_message, "info")
+    
     driver = setup_driver()
     all_count = 0
     
     try:
-        for loc in TARGET_LOCATIONS:
+        for idx, loc in enumerate(TARGET_LOCATIONS):
+            current_location_index = idx + 1
+            current_location_index_ref[0] = current_location_index
             print(f"\n📍 ターゲットエリア: {loc} の処理を開始")
             
             # 【重要】Cookie削除（リセット）
@@ -202,8 +330,54 @@ def main():
 
     except KeyboardInterrupt:
         print("\n🛑 中断しました")
+        stop_event.set()
+        
+        # 中断通知
+        stats = get_progress_stats(output_path, total_locations, current_location_index, start_time)
+        if stats:
+            interrupt_message = (
+                f"🛑 UberEatsリスト収集が中断されました\n\n"
+                f"⏱️ 経過時間: {stats['elapsed_hours']}時間{stats['elapsed_minutes']}分\n"
+                f"📍 処理済みエリア: {stats['current_location']}/{stats['total_locations']}\n"
+                f"✅ 収集済みURL数: {stats['collected_count']}件\n"
+                f"⚠️ 中断時点までのデータは保存されています"
+            )
+            send_slack_notification(interrupt_message, "warning")
+    except Exception as e:
+        print(f"\n❌ エラーが発生しました: {e}")
+        stop_event.set()
+        
+        # エラー通知
+        stats = get_progress_stats(output_path, total_locations, current_location_index, start_time)
+        if stats:
+            error_message = (
+                f"❌ UberEatsリスト収集でエラーが発生しました\n\n"
+                f"⏱️ 経過時間: {stats['elapsed_hours']}時間{stats['elapsed_minutes']}分\n"
+                f"📍 処理済みエリア: {stats['current_location']}/{stats['total_locations']}\n"
+                f"✅ 収集済みURL数: {stats['collected_count']}件\n"
+                f"❌ エラー: {str(e)}"
+            )
+            send_slack_notification(error_message, "danger")
     finally:
+        stop_event.set()  # 通知スレッドを停止
         driver.quit()
+        
+        # 完了通知
+        total_time = time.time() - start_time
+        total_hours = int(total_time / 3600)
+        total_minutes = int((total_time % 3600) / 60)
+        
+        final_stats = get_progress_stats(output_path, total_locations, current_location_index, start_time)
+        if final_stats:
+            completion_message = (
+                f"✅ UberEatsリスト収集が完了しました\n\n"
+                f"⏱️ 総処理時間: {total_hours}時間{total_minutes}分\n"
+                f"📍 処理エリア数: {final_stats['current_location']}/{total_locations}\n"
+                f"✅ 収集URL数: {final_stats['collected_count']}件\n"
+                f"📁 保存先: {output_path}"
+            )
+            send_slack_notification(completion_message, "good")
+        
         print(f"\n✅ 処理完了。保存先: {output_path}")
 
 if __name__ == "__main__":

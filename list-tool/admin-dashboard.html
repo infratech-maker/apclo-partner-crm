@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>管理者ダッシュボード - ロケットナウ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // ログインチェックは無効化（開発環境用）
+      // (function() {
+      //   const isAdmin = sessionStorage.getItem("isAdmin") === "true";
+      //   const currentPartnerId = sessionStorage.getItem("currentPartnerId");
+      //   
+      //   if (!currentPartnerId) {
+      //     window.location.href = "/login";
+      //     return;
+      //   }
+      //   
+      //   if (!isAdmin) {
+      //     window.location.replace("/login");
+      //     return;
+      //   }
+      // })();
+      
+      // 開発環境用: デフォルトのパートナーIDを設定
+      if (!sessionStorage.getItem("currentPartnerId")) {
+        sessionStorage.setItem("currentPartnerId", "ADMIN");
+        sessionStorage.setItem("isAdmin", "true");
+      }
+    </script>
+    <style>
+      body {
+        font-family: "Inter", "Noto Sans JP", sans-serif;
+        background-color: #f8f9fa;
+      }
+    </style>
+  </head>
+  <body class="antialiased text-slate-900 bg-slate-100">
+    <div class="min-h-screen flex">
+      <!-- サイドナビ（共通フレーム） -->
+      <aside class="hidden md:flex md:flex-col w-64 bg-slate-900 text-slate-100">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800">
+          <div>
+            <div class="text-xs uppercase tracking-widest text-slate-400">
+              APCLO PARTNER
+            </div>
+            <div class="text-lg font-semibold tracking-tight">
+              Admin Board
+            </div>
+          </div>
+        </div>
+        <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+          <a
+            href="/admin-dashboard"
+            class="flex items-center gap-2 px-3 py-2 rounded-md bg-slate-800 text-slate-50 font-medium"
+          >
+            <span>📊</span>
+            <span>管理者ダッシュボード</span>
+          </a>
+          <a
+            href="/list-tool"
+            class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            <span>📋</span>
+            <span>リスト収集ツール</span>
+          </a>
+          <a
+            href="/billing"
+            class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            <span>💰</span>
+            <span>請求関連（全パートナー）</span>
+          </a>
+          <a
+            href="/products"
+            class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            <span>🛒</span>
+            <span>その他商材</span>
+          </a>
+          <a
+            href="/account-management"
+            class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            <span>👥</span>
+            <span>アカウント管理</span>
+          </a>
+        </nav>
+        <div class="px-4 py-4 border-t border-slate-800 text-xs text-slate-400">
+          <div>FAST ALONE FAR TOGETHER</div>
+          <div class="mt-1">一人ではたどり着けない未来を、ともに。</div>
+        </div>
+      </aside>
+
+      <!-- メインコンテンツ -->
+      <div class="flex-1 flex flex-col">
+        <header class="bg-white border-b border-slate-200">
+          <div class="px-4 md:px-8 py-4 flex items-center justify-between">
+            <div>
+              <h1 class="text-xl md:text-2xl font-semibold tracking-tight text-slate-900">
+                管理者ダッシュボード
+              </h1>
+              <p class="text-xs md:text-sm text-slate-500 mt-1">
+                全パートナーの進捗と収益を一元管理
+              </p>
+            </div>
+            <div class="flex items-center gap-4">
+              <span
+                id="admin-id-display"
+                class="hidden sm:inline-flex text-xs md:text-sm font-medium text-slate-600 px-3 py-1 rounded-full bg-slate-100"
+              >
+                マスター管理者
+              </span>
+              <button
+                id="btn-logout"
+                class="px-3 py-2 md:px-4 md:py-2 bg-slate-900 text-white rounded-md text-xs md:text-sm font-medium hover:bg-slate-800 transition"
+              >
+                ログアウト
+              </button>
+            </div>
+          </div>
+        </header>
+        
+        <main class="px-4 md:px-8 py-6 md:py-8 max-w-7xl w-full mx-auto">
+      <!-- 全体統計 -->
+      <section class="mb-8 bg-white p-6 rounded-lg shadow-xl">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">全体統計</h2>
+        <div id="overall-stats" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <!-- 動的に生成 -->
+        </div>
+      </section>
+      
+      <!-- パートナー一覧 -->
+      <section class="mb-8 bg-white p-6 rounded-lg shadow-xl">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">パートナー一覧</h2>
+        <div class="mb-4">
+          <input
+            type="text"
+            id="search-partner"
+            placeholder="パートナーIDで検索..."
+            class="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div id="partners-list" class="space-y-4">
+          <!-- 動的に生成 -->
+        </div>
+      </section>
+        </main>
+      </div>
+    </div>
+    <script>
+      // 管理者チェック
+      const isAdmin = sessionStorage.getItem("isAdmin") === "true";
+      if (!isAdmin) {
+        window.location.href = "/login";
+      }
+      
+      // ログアウト
+      document.getElementById("btn-logout").addEventListener("click", () => {
+        sessionStorage.removeItem("currentPartnerId");
+        sessionStorage.removeItem("isAdmin");
+        window.location.href = "/login";
+      });
+      
+      // 全パートナーのデータを取得
+      function getAllPartnersData() {
+        const partners = [];
+        const keys = Object.keys(localStorage);
+        
+        // パートナーIDを抽出（partner_XXX_* の形式から）
+        const partnerIds = new Set();
+        keys.forEach(key => {
+          const match = key.match(/^partner_([^_]+)_/);
+          if (match) {
+            partnerIds.add(match[1]);
+          }
+        });
+        
+        // 各パートナーのデータを集計
+        partnerIds.forEach(partnerId => {
+          const reports = JSON.parse(localStorage.getItem(`partner_${partnerId}_dailyReports`) || "[]");
+          const strategies = JSON.parse(localStorage.getItem(`partner_${partnerId}_savedStrategies`) || "[]");
+          
+          // 今月のレポートを集計
+          const now = new Date();
+          const currentMonth = now.getMonth();
+          const currentYear = now.getFullYear();
+          
+          const monthlyReports = reports.filter(r => {
+            const reportDate = new Date(r.date);
+            return reportDate.getMonth() === currentMonth && reportDate.getFullYear() === currentYear;
+          });
+          
+          const totals = monthlyReports.reduce((acc, r) => {
+            acc.visits += parseInt(r.visits) || 0;
+            acc.contacts += parseInt(r.contacts) || 0;
+            acc.toss += parseInt(r.toss) || 0;
+            acc.negotiations += parseInt(r.negotiations) || 0;
+            acc.contracts += parseInt(r.contracts) || 0;
+            acc.revenue += parseInt(r.revenue) || 0;
+            return acc;
+          }, { visits: 0, contacts: 0, toss: 0, negotiations: 0, contracts: 0, revenue: 0 });
+          
+          partners.push({
+            id: partnerId,
+            reports: reports.length,
+            monthlyReports: monthlyReports.length,
+            strategies: strategies.length,
+            totals: totals,
+            lastActivity: reports.length > 0 ? reports[reports.length - 1].createdAt : null,
+          });
+        });
+        
+        return partners;
+      }
+      
+      // 全体統計を表示
+      function displayOverallStats(partners) {
+        const totalPartners = partners.length;
+        const totalReports = partners.reduce((sum, p) => sum + p.reports, 0);
+        const totalMonthlyReports = partners.reduce((sum, p) => sum + p.monthlyReports, 0);
+        const totalRevenue = partners.reduce((sum, p) => sum + p.totals.revenue, 0);
+        const totalContracts = partners.reduce((sum, p) => sum + p.totals.contracts, 0);
+        
+        document.getElementById("overall-stats").innerHTML = `
+          <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-600">
+            <h3 class="text-sm font-semibold text-gray-600 mb-1">登録パートナー数</h3>
+            <p class="text-3xl font-bold text-blue-600">${totalPartners}</p>
+          </div>
+          <div class="bg-green-50 p-4 rounded-lg border-l-4 border-green-600">
+            <h3 class="text-sm font-semibold text-gray-600 mb-1">今月の日報数</h3>
+            <p class="text-3xl font-bold text-green-600">${totalMonthlyReports}</p>
+          </div>
+          <div class="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-600">
+            <h3 class="text-sm font-semibold text-gray-600 mb-1">今月の総収益</h3>
+            <p class="text-3xl font-bold text-purple-600">¥${totalRevenue.toLocaleString()}</p>
+          </div>
+          <div class="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-600">
+            <h3 class="text-sm font-semibold text-gray-600 mb-1">今月の総成約数</h3>
+            <p class="text-3xl font-bold text-orange-600">${totalContracts}件</p>
+          </div>
+        `;
+      }
+      
+      // パートナー一覧を表示
+      function displayPartners(partners, searchTerm = "") {
+        const filtered = searchTerm
+          ? partners.filter(p => p.id.toLowerCase().includes(searchTerm.toLowerCase()))
+          : partners;
+        
+        if (filtered.length === 0) {
+          document.getElementById("partners-list").innerHTML = `
+            <p class="text-center text-gray-500 py-8">パートナーが見つかりませんでした</p>
+          `;
+          return;
+        }
+        
+        document.getElementById("partners-list").innerHTML = filtered
+          .map(partner => {
+            const lastActivity = partner.lastActivity
+              ? new Date(partner.lastActivity).toLocaleString("ja-JP")
+              : "なし";
+            
+            return `
+              <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition">
+                <div class="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 class="text-xl font-bold text-gray-800">パートナーID: ${partner.id}</h3>
+                    <p class="text-sm text-gray-500 mt-1">最終活動: ${lastActivity}</p>
+                  </div>
+                  <button
+                    onclick="viewPartnerDetail('${partner.id}')"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                  >
+                    詳細を見る
+                  </button>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  <div>
+                    <p class="text-xs text-gray-500">今月の訪問店舗数</p>
+                    <p class="text-lg font-bold text-gray-800">${partner.totals.visits}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">今月のキーマン接触数</p>
+                    <p class="text-lg font-bold text-gray-800">${partner.totals.contacts}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">今月の成約件数</p>
+                    <p class="text-lg font-bold text-gray-800">${partner.totals.contracts}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">今月の収益</p>
+                    <p class="text-lg font-bold text-gray-800">¥${partner.totals.revenue.toLocaleString()}</p>
+                  </div>
+                </div>
+                <div class="mt-3 text-sm text-gray-500">
+                  <span>総日報数: ${partner.reports}件</span>
+                  <span class="ml-4">保存戦略数: ${partner.strategies}件</span>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+      }
+      
+      // パートナー詳細を表示（別ページまたはモーダル）
+      window.viewPartnerDetail = function(partnerId) {
+        sessionStorage.setItem("viewPartnerId", partnerId);
+        window.open(`index.html?view=${partnerId}`, "_blank");
+      };
+      
+      // 検索機能
+      document.getElementById("search-partner").addEventListener("input", async (e) => {
+        const partners = await getAllPartnersData();
+        displayPartners(partners, e.target.value);
+      });
+      
+      // 初期表示
+      document.addEventListener("DOMContentLoaded", async () => {
+        const partners = await getAllPartnersData();
+        displayOverallStats(partners);
+        displayPartners(partners);
+      });
+    </script>
+  </body>
+</html>
+

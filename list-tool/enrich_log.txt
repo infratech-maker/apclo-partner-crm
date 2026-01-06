@@ -1,0 +1,1 @@
+Celeryの初期化をスキップしました: No module named 'celery'

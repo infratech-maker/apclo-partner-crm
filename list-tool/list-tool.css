@@ -1,0 +1,377 @@
+body {
+    font-family: "Inter", "Noto Sans JP", sans-serif;
+    background-color: #fafafa;
+}
+
+/* apclo.co.jp風のシンプルなデザイン */
+.apclo-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.2s ease;
+}
+
+.apclo-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.apclo-button {
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.apclo-button:hover {
+    transform: translateY(-1px);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.status-badge:hover {
+    transform: scale(1.05);
+}
+
+.status-approach {
+    background-color: #FEF3C7;
+    color: #92400E;
+    border: 1px solid #FCD34D;
+}
+
+.status-contracted {
+    background-color: #D1FAE5;
+    color: #065F46;
+    border: 1px solid #34D399;
+}
+
+.status-none {
+    background-color: #F3F4F6;
+    color: #6B7280;
+    border: 1px solid #D1D5DB;
+}
+.store-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.store-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+th {
+    position: sticky;
+    top: 0;
+    background-color: #f9fafb;
+    z-index: 10;
+}
+
+tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+/* モーダルスタイル */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 2% auto;
+    padding: 20px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: black;
+}
+
+#map {
+    width: 100%;
+    height: 600px;
+    border-radius: 8px;
+}
+
+/* 店舗名は 30文字相当で折り返し */
+.store-name-cell {
+    max-width: 30ch;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* タブナビゲーション */
+.lt-tab {
+    padding: 0.5rem 0.75rem;
+    border-bottom-width: 2px;
+    border-bottom-color: transparent;
+    color: #6b7280; /* gray-500 */
+    font-weight: 500;
+}
+
+.lt-tab:hover {
+    color: #111827; /* gray-900 */
+}
+
+.lt-tab-active {
+    border-bottom-color: #2563eb; /* blue-600 */
+    color: #111827;
+}
+
+.mylist-subtab {
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.mylist-subtab:hover {
+    color: #374151;
+}
+
+.mylist-subtab-active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+}
+
+.mylist-content {
+    min-height: 200px;
+}
+
+/* ヘッダーフィルターメニュー */
+.header-filter-menu {
+    position: fixed;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 10000;
+    min-width: 280px;
+    max-width: 400px;
+    max-height: 500px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: none;
+}
+
+.header-filter-menu.show {
+    display: block;
+    opacity: 1;
+}
+
+.header-filter-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 13px;
+    color: #374151;
+}
+
+.header-filter-menu-item:hover {
+    background-color: #f9fafb;
+}
+
+.header-filter-menu-item:last-child {
+    border-bottom: none;
+}
+
+.header-filter-menu-section {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 8px 0;
+}
+
+.header-filter-menu-section:last-child {
+    border-bottom: none;
+}
+
+.header-filter-menu-section-title {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.header-filter-search {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.header-filter-search input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.header-filter-values {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.header-filter-value-item {
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.header-filter-value-item:hover {
+    background-color: #f9fafb;
+}
+
+.header-filter-value-item input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.header-filter-actions {
+    padding: 8px 12px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.header-filter-actions button {
+    flex: 1;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.header-filter-clear {
+    background: white;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+.header-filter-apply {
+    background: #2563eb;
+    border: none;
+    color: white;
+}
+
+.header-filter-icon {
+    margin-left: 4px;
+    opacity: 0.5;
+    cursor: pointer;
+}
+
+.header-filter-icon:hover {
+    opacity: 1;
+}
+
+th {
+    position: relative;
+}
+
+/* 列幅の調整 */
+th[data-column="name"] {
+    min-width: 320px;
+    max-width: 320px;
+}
+
+th[data-column="address"] {
+    min-width: 320px;
+    max-width: 320px;
+}
+
+th[data-column="official_account"] {
+    white-space: nowrap;
+    min-width: 150px;
+}
+
+th[data-column="collected_at"] {
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+th[data-column="delivery"] {
+    white-space: nowrap;
+    min-width: 180px;
+}
+
+/* テーブルセルの幅調整 */
+.store-name-cell {
+    min-width: 320px;
+    max-width: 320px;
+}
+
+.store-address-cell {
+    min-width: 320px;
+    max-width: 320px;
+}
+
+.store-official-account-cell {
+    white-space: nowrap !important;
+    min-width: 150px;
+}
+
+.store-collected-at-cell {
+    white-space: nowrap !important;
+    min-width: 120px;
+}
+
+.store-delivery-cell {
+    white-space: nowrap !important;
+    min-width: 180px;
+}

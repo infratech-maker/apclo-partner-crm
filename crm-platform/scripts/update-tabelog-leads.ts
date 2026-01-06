@@ -159,8 +159,16 @@ async function updateTabelogLeads() {
           transport: result.transport ?? data.transport,
           business_hours: result.business_hours ?? data.business_hours,
           budget: result.budget ?? data.budget,
+          website: result.website ?? data.website, // 公式アカウント（HPURL）
           related_stores: result.related_stores ?? data.related_stores,
           is_franchise: result.is_franchise ?? data.is_franchise,
+          // 日本語フィールド名も追加（既存データとの互換性のため）
+          定休日: result.regular_holiday ?? data.定休日 ?? data.regular_holiday,
+          交通手段: result.transport ?? data.交通手段 ?? data.transport,
+          交通アクセス: result.transport ?? data.交通アクセス ?? data.transport,
+          営業時間: result.business_hours ?? data.営業時間 ?? data.business_hours,
+          公式HP: result.website ?? data.公式HP ?? data.website,
+          公式アカウント: result.website ?? data.公式アカウント ?? data.website,
         };
 
         await db

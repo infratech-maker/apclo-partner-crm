@@ -596,8 +596,8 @@ async function importUbereatsStores(areaUrl: string = "https://www.ubereats.com/
     
     throw error;
   } finally {
-    if (browser) {
-      await browser.close();
+    if (browser !== null) {
+      await (browser as Browser).close();
     }
   }
 }

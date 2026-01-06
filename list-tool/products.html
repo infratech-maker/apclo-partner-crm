@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>その他商材 - ロケットナウ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // ログインチェックは無効化（開発環境用）
+      // (function() {
+      //   const currentPartnerId = sessionStorage.getItem("currentPartnerId");
+      //   if (!currentPartnerId) {
+      //     window.location.href = "/login";
+      //     return;
+      //   }
+      // })();
+      
+      // 開発環境用: デフォルトのパートナーIDを設定
+      if (!sessionStorage.getItem("currentPartnerId")) {
+        sessionStorage.setItem("currentPartnerId", "ADMIN");
+        sessionStorage.setItem("isAdmin", "true");
+      }
+      
+      // 管理者/パートナーに応じてサイドバーメニューを切り替え
+      document.addEventListener('DOMContentLoaded', function() {
+        const isAdmin = sessionStorage.getItem("isAdmin") === "true";
+        const partnerMenu = document.getElementById('partner-menu');
+        const adminMenu = document.getElementById('admin-menu');
+        const sidebarTitle = document.getElementById('sidebar-title');
+        
+        if (isAdmin) {
+          // 管理者の場合
+          if (partnerMenu) partnerMenu.style.display = 'none';
+          if (adminMenu) adminMenu.style.display = 'block';
+          if (sidebarTitle) sidebarTitle.textContent = 'Admin Board';
+        } else {
+          // 一般パートナーの場合
+          if (partnerMenu) partnerMenu.style.display = 'block';
+          if (adminMenu) adminMenu.style.display = 'none';
+          if (sidebarTitle) sidebarTitle.textContent = 'Product Board';
+        }
+      });
+    </script>
+    <style>
+      body {
+        font-family: "Inter", "Noto Sans JP", sans-serif;
+        background-color: #f8f9fa;
+      }
+      .product-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .product-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+    </style>
+  </head>
+  <body class="antialiased text-slate-900 bg-slate-100">
+    <div class="min-h-screen flex">
+      <!-- サイドナビ（共通フレーム） -->
+      <aside class="hidden md:flex md:flex-col w-64 bg-slate-900 text-slate-100">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800">
+          <div>
+            <div class="text-xs uppercase tracking-widest text-slate-400">
+              APCLO PARTNER
+            </div>
+            <div class="text-lg font-semibold tracking-tight" id="sidebar-title">
+              Product Board
+            </div>
+          </div>
+        </div>
+        <nav class="flex-1 px-3 py-4 space-y-1 text-sm" id="sidebar-nav">
+          <!-- 一般パートナー用メニュー -->
+          <div id="partner-menu">
+            <a
+              href="/dashboard"
+              class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+            >
+              <span>📊</span>
+              <span>Salesダッシュボード</span>
+            </a>
+            <a
+              href="/list-tool"
+              class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+            >
+              <span>📋</span>
+              <span>リスト収集ツール</span>
+            </a>
+            <a
+              href="/products"
+              class="flex items-center gap-2 px-3 py-2 rounded-md bg-slate-800 text-slate-50 font-medium"
+            >
+              <span>🛒</span>
+              <span>その他商材</span>
+            </a>
+          </div>
+          <!-- 管理者用メニュー -->
+          <div id="admin-menu" style="display: none;">
+            <a
+              href="/admin-dashboard"
+              class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+            >
+              <span>📊</span>
+              <span>管理者ダッシュボード</span>
+            </a>
+            <a
+              href="/list-tool"
+              class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+            >
+              <span>📋</span>
+              <span>リスト収集ツール</span>
+            </a>
+            <a
+              href="/billing"
+              class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+            >
+              <span>💰</span>
+              <span>請求関連（全パートナー）</span>
+            </a>
+            <a
+              href="/products"
+              class="flex items-center gap-2 px-3 py-2 rounded-md bg-slate-800 text-slate-50 font-medium"
+            >
+              <span>🛒</span>
+              <span>その他商材</span>
+            </a>
+            <a
+              href="/account-management"
+              class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+            >
+              <span>👥</span>
+              <span>アカウント管理</span>
+            </a>
+          </div>
+        </nav>
+        <div class="px-4 py-4 border-t border-slate-800 text-xs text-slate-400">
+          <div>FAST ALONE FAR TOGETHER</div>
+          <div class="mt-1">一人ではたどり着けない未来を、ともに。</div>
+        </div>
+      </aside>
+      
+      <!-- メインコンテンツ -->
+      <div class="flex-1 flex flex-col">
+        <header class="bg-white border-b border-slate-200">
+          <div class="px-4 md:px-8 py-4 flex items-center justify-between">
+            <div>
+              <h1 class="text-xl md:text-2xl font-semibold tracking-tight text-slate-900">
+                その他商材
+              </h1>
+              <p class="text-xs md:text-sm text-slate-500 mt-1">
+                APCLOパートナー向けの追加商材ラインナップ
+              </p>
+            </div>
+            <div class="flex items-center gap-4">
+              <span
+                id="partner-id-display"
+                class="hidden sm:inline-flex text-xs md:text-sm font-medium text-slate-600 px-3 py-1 rounded-full bg-slate-100"
+              ></span>
+              <button
+                id="btn-logout"
+                class="px-3 py-2 md:px-4 md:py-2 bg-slate-900 text-white rounded-md text-xs md:text-sm font-medium hover:bg-slate-800 transition"
+              >
+                ログアウト
+              </button>
+            </div>
+          </div>
+        </header>
+        
+        <main class="px-4 md:px-8 py-6 md:py-8 max-w-6xl w-full mx-auto">
+      <!-- 商材カテゴリー -->
+      <section class="mb-8">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">商材カテゴリー</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="product-card bg-white p-6 rounded-lg shadow-md cursor-pointer">
+            <div class="text-4xl mb-3">📱</div>
+            <h3 class="text-xl font-semibold mb-2 text-gray-800">デジタルマーケティング</h3>
+            <p class="text-gray-600 text-sm">Web広告、SNS運用、SEO対策などのデジタルマーケティングサービス</p>
+          </div>
+          <div class="product-card bg-white p-6 rounded-lg shadow-md cursor-pointer">
+            <div class="text-4xl mb-3">💼</div>
+            <h3 class="text-xl font-semibold mb-2 text-gray-800">ビジネスコンサル</h3>
+            <p class="text-gray-600 text-sm">経営戦略、業務改善、人材育成などのコンサルティングサービス</p>
+          </div>
+          <div class="product-card bg-white p-6 rounded-lg shadow-md cursor-pointer">
+            <div class="text-4xl mb-3">🏢</div>
+            <h3 class="text-xl font-semibold mb-2 text-gray-800">システム開発</h3>
+            <p class="text-gray-600 text-sm">Webアプリ、モバイルアプリ、業務システムの開発サービス</p>
+          </div>
+          <div class="product-card bg-white p-6 rounded-lg shadow-md cursor-pointer">
+            <div class="text-4xl mb-3">📊</div>
+            <h3 class="text-xl font-semibold mb-2 text-gray-800">データ分析</h3>
+            <p class="text-gray-600 text-sm">ビッグデータ分析、BIツール導入、レポート作成サービス</p>
+          </div>
+          <div class="product-card bg-white p-6 rounded-lg shadow-md cursor-pointer">
+            <div class="text-4xl mb-3">🎨</div>
+            <h3 class="text-xl font-semibold mb-2 text-gray-800">デザイン制作</h3>
+            <p class="text-gray-600 text-sm">ロゴデザイン、Webデザイン、パンフレット制作などのデザインサービス</p>
+          </div>
+          <div class="product-card bg-white p-6 rounded-lg shadow-md cursor-pointer">
+            <div class="text-4xl mb-3">📝</div>
+            <h3 class="text-xl font-semibold mb-2 text-gray-800">コンテンツ制作</h3>
+            <p class="text-gray-600 text-sm">記事作成、動画制作、SNSコンテンツ制作サービス</p>
+          </div>
+        </div>
+      </section>
+      
+      <!-- おすすめ商材 -->
+      <section class="mb-8 bg-white p-6 rounded-lg shadow-xl">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">おすすめ商材</h2>
+        <div class="space-y-4">
+          <div class="flex items-start p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border-l-4 border-blue-600">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-gray-800 mb-2">飲食店向けデジタルマーケティングパッケージ</h3>
+              <p class="text-gray-600 text-sm mb-3">
+                Uber Eats・出前館などのデリバリーサービス連携、SNS運用、Webサイト制作をセットにしたパッケージサービス
+              </p>
+              <div class="flex items-center gap-4 text-sm">
+                <span class="text-gray-600">💰 月額: ¥50,000〜</span>
+                <span class="text-gray-600">📈 成約率: 高</span>
+              </div>
+            </div>
+            <button
+              class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
+            >
+              詳細を見る
+            </button>
+          </div>
+          
+          <div class="flex items-start p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border-l-4 border-green-600">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-gray-800 mb-2">店舗リスト自動収集ツール</h3>
+              <p class="text-gray-600 text-sm mb-3">
+                全国の飲食店舗情報を自動収集し、営業リストとして活用できるツールサービス
+              </p>
+              <div class="flex items-center gap-4 text-sm">
+                <span class="text-gray-600">💰 月額: ¥30,000〜</span>
+                <span class="text-gray-600">📈 成約率: 中</span>
+              </div>
+            </div>
+            <button
+              class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold"
+            >
+              詳細を見る
+            </button>
+          </div>
+          
+          <div class="flex items-start p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-l-4 border-purple-600">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-gray-800 mb-2">AI営業支援システム</h3>
+              <p class="text-gray-600 text-sm mb-3">
+                AIを活用した営業戦略提案、顧客分析、成約予測などの営業支援システム
+              </p>
+              <div class="flex items-center gap-4 text-sm">
+                <span class="text-gray-600">💰 月額: ¥80,000〜</span>
+                <span class="text-gray-600">📈 成約率: 高</span>
+              </div>
+            </div>
+            <button
+              class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition font-semibold"
+            >
+              詳細を見る
+            </button>
+          </div>
+        </div>
+      </section>
+      
+      <!-- 商材検索 -->
+      <section class="mb-8 bg-white p-6 rounded-lg shadow-xl">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">商材検索</h2>
+        <div class="mb-4">
+          <input
+            type="text"
+            id="product-search"
+            placeholder="商材名、カテゴリー、キーワードで検索..."
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div id="search-results" class="space-y-3">
+          <!-- 検索結果が表示されます -->
+        </div>
+      </section>
+      
+      <!-- お問い合わせ -->
+      <section class="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 p-8 rounded-lg shadow-xl text-white">
+        <h2 class="text-2xl font-bold mb-4">商材に関するお問い合わせ</h2>
+        <p class="mb-6">ご不明な点やご質問がございましたら、お気軽にお問い合わせください。</p>
+        <button
+          class="px-8 py-3 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition font-semibold"
+        >
+          お問い合わせフォームへ
+        </button>
+      </section>
+        </main>
+      </div>
+    </div>
+    
+    <script>
+      // ログイン確認（既にhead内でチェック済みのため、ここでは表示のみ）
+      function checkLogin() {
+        const currentPartnerId = sessionStorage.getItem("currentPartnerId");
+        const isAdmin = sessionStorage.getItem("isAdmin") === "true";
+        
+        if (!currentPartnerId) {
+          window.location.href = "/login";
+          return false;
+        }
+        
+        // パートナーIDを表示（管理者の場合は「マスター管理者」と表示）
+        if (isAdmin) {
+          document.getElementById("partner-id-display").textContent = "マスター管理者";
+        } else {
+          document.getElementById("partner-id-display").textContent = `パートナーID: ${currentPartnerId}`;
+        }
+        return true;
+      }
+      
+      // ログアウト
+      document.getElementById("btn-logout").addEventListener("click", () => {
+        sessionStorage.removeItem("currentPartnerId");
+        sessionStorage.removeItem("isAdmin");
+        window.location.href = "/login";
+      });
+      
+      // ログイン確認を実行
+      if (!checkLogin()) {
+        // リダイレクトされるので、ここには到達しない
+      }
+      
+      // 商材データ（サンプル）
+      const products = [
+        {
+          id: 1,
+          name: "飲食店向けデジタルマーケティングパッケージ",
+          category: "デジタルマーケティング",
+          price: "¥50,000〜",
+          description: "Uber Eats・出前館などのデリバリーサービス連携、SNS運用、Webサイト制作をセットにしたパッケージサービス",
+          conversionRate: "高"
+        },
+        {
+          id: 2,
+          name: "店舗リスト自動収集ツール",
+          category: "システム開発",
+          price: "¥30,000〜",
+          description: "全国の飲食店舗情報を自動収集し、営業リストとして活用できるツールサービス",
+          conversionRate: "中"
+        },
+        {
+          id: 3,
+          name: "AI営業支援システム",
+          category: "システム開発",
+          price: "¥80,000〜",
+          description: "AIを活用した営業戦略提案、顧客分析、成約予測などの営業支援システム",
+          conversionRate: "高"
+        }
+      ];
+      
+      // 検索機能
+      document.getElementById("product-search").addEventListener("input", (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        const resultsContainer = document.getElementById("search-results");
+        
+        if (!query) {
+          resultsContainer.innerHTML = "";
+          return;
+        }
+        
+        const filtered = products.filter(product => 
+          product.name.toLowerCase().includes(query) ||
+          product.category.toLowerCase().includes(query) ||
+          product.description.toLowerCase().includes(query)
+        );
+        
+        if (filtered.length === 0) {
+          resultsContainer.innerHTML = '<p class="text-center text-gray-500 py-8">該当する商材が見つかりませんでした</p>';
+          return;
+        }
+        
+        resultsContainer.innerHTML = filtered.map(product => `
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <h3 class="font-semibold text-gray-800 mb-2">${product.name}</h3>
+            <p class="text-sm text-gray-600 mb-2">${product.description}</p>
+            <div class="flex items-center gap-4 text-sm">
+              <span class="text-gray-600">💰 ${product.price}</span>
+              <span class="text-gray-600">📈 成約率: ${product.conversionRate}</span>
+              <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">${product.category}</span>
+            </div>
+          </div>
+        `).join('');
+      });
+      
+      // カテゴリーカードのクリックイベント
+      document.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const category = card.querySelector('h3').textContent;
+          document.getElementById('product-search').value = category;
+          document.getElementById('product-search').dispatchEvent(new Event('input'));
+        });
+      });
+    </script>
+  </body>
+</html>
+

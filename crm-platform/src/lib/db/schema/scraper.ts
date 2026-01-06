@@ -27,7 +27,7 @@ export const scrapingJobStatusEnum = pgEnum("scraping_job_status", [
  */
 export const scrapingJobs = pgTable("scraping_jobs", {
   id: uuid("id").defaultRandom().primaryKey(),
-  tenantId: uuid("tenant_id")
+  tenantId: uuid("tenantId")
     .references(() => tenants.id, { onDelete: "cascade" })
     .notNull(), // マルチテナント対応: テナントID
   
@@ -36,17 +36,17 @@ export const scrapingJobs = pgTable("scraping_jobs", {
   status: scrapingJobStatusEnum("status").default("pending").notNull(),
   
   // BullMQ連携
-  bullmqJobId: text("bullmq_job_id"), // BullMQのジョブID
+  bullmqJobId: text("bullmqJobId"), // BullMQのジョブID
   
   // 結果・エラー情報
   result: jsonb("result"), // スクレイピング結果（JSONB）
   error: text("error"), // エラーメッセージ
   
   // メタデータ
-  startedAt: timestamp("started_at"),
-  completedAt: timestamp("completed_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 /**

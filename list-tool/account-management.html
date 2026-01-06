@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アカウント管理 - ロケットナウ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // ログインチェックは無効化（開発環境用）
+      // (function() {
+      //   const isAdmin = sessionStorage.getItem("isAdmin") === "true";
+      //   const currentPartnerId = sessionStorage.getItem("currentPartnerId");
+      //   
+      //   if (!currentPartnerId) {
+      //     window.location.href = "/login";
+      //     return;
+      //   }
+      //   
+      //   if (!isAdmin) {
+      //     window.location.replace("/login");
+      //     return;
+      //   }
+      // })();
+      
+      // 開発環境用: デフォルトのパートナーIDを設定
+      if (!sessionStorage.getItem("currentPartnerId")) {
+        sessionStorage.setItem("currentPartnerId", "ADMIN");
+        sessionStorage.setItem("isAdmin", "true");
+      }
+    </script>
+    <style>
+        body {
+            font-family: "Inter", "Noto Sans JP", sans-serif;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body class="antialiased text-slate-900 bg-slate-100">
+    <div class="min-h-screen flex">
+      <!-- サイドナビ（共通フレーム） -->
+      <aside class="hidden md:flex md:flex-col w-64 bg-slate-900 text-slate-100">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800">
+          <div>
+            <div class="text-xs uppercase tracking-widest text-slate-400">
+              APCLO PARTNER
+            </div>
+            <div class="text-lg font-semibold tracking-tight">
+              Admin Board
+            </div>
+          </div>
+        </div>
+        <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+          <a
+            href="/admin-dashboard"
+            class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            <span>📊</span>
+            <span>管理者ダッシュボード</span>
+          </a>
+          <a
+            href="/list-tool"
+            class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            <span>📋</span>
+            <span>リスト収集ツール</span>
+          </a>
+          <a
+            href="/billing"
+            class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            <span>💰</span>
+            <span>請求関連（全パートナー）</span>
+          </a>
+          <a
+            href="/products"
+            class="flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            <span>🛒</span>
+            <span>その他商材</span>
+          </a>
+          <a
+            href="/account-management"
+            class="flex items-center gap-2 px-3 py-2 rounded-md bg-slate-800 text-slate-50 font-medium"
+          >
+            <span>👥</span>
+            <span>アカウント管理</span>
+          </a>
+        </nav>
+        <div class="px-4 py-4 border-t border-slate-800 text-xs text-slate-400">
+          <div>FAST ALONE FAR TOGETHER</div>
+          <div class="mt-1">一人ではたどり着けない未来を、ともに。</div>
+        </div>
+      </aside>
+
+      <!-- メインコンテンツ -->
+      <div class="flex-1 flex flex-col">
+        <header class="bg-white border-b border-slate-200">
+          <div class="px-4 md:px-8 py-4 flex items-center justify-between">
+            <div>
+              <h1 class="text-xl md:text-2xl font-semibold tracking-tight text-slate-900">
+                アカウント管理
+              </h1>
+              <p class="text-xs md:text-sm text-slate-500 mt-1">
+                ユーザーアカウントの作成・編集・管理
+              </p>
+            </div>
+            <div class="flex items-center gap-4">
+              <span
+                id="admin-id-display"
+                class="hidden sm:inline-flex text-xs md:text-sm font-medium text-slate-600 px-3 py-1 rounded-full bg-slate-100"
+              >
+                マスター管理者
+              </span>
+              <button
+                id="btn-logout"
+                class="px-3 py-2 md:px-4 md:py-2 bg-slate-900 text-white rounded-md text-xs md:text-sm font-medium hover:bg-slate-800 transition"
+              >
+                ログアウト
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main class="px-4 lg:px-10 xl:px-12 py-6 md:py-8 max-w-7xl w-full mx-auto">
+            <!-- 管理者チェック -->
+            <div id="admin-check" class="hidden">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <p class="text-red-800">管理者権限が必要です。管理者としてログインしてください。</p>
+                </div>
+            </div>
+
+            <!-- アカウント作成ボタン -->
+            <div class="mb-6 flex justify-between items-center">
+                <h2 class="text-2xl font-semibold text-gray-900">ユーザーアカウント一覧</h2>
+                <button
+                    id="btn-create-user"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                >
+                    + 新規アカウント作成
+                </button>
+            </div>
+
+            <!-- フィルター -->
+            <div class="mb-6 bg-white p-4 rounded-lg shadow-sm">
+                <div class="flex flex-wrap gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ユーザータイプ</label>
+                        <select id="filter-user-type" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">すべて</option>
+                            <option value="admin">管理者</option>
+                            <option value="partner">パートナー</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">ステータス</label>
+                        <select id="filter-is-active" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">すべて</option>
+                            <option value="1">有効</option>
+                            <option value="0">無効</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">社内/社外</label>
+                        <select id="filter-is-agency" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">すべて</option>
+                            <option value="0">社内</option>
+                            <option value="1">社外</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button
+                            id="btn-apply-filter"
+                            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+                        >
+                            フィルター適用
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ユーザー一覧テーブル -->
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">パートナーコード</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名前</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">組織</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">タイプ</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">社内/社外</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最終ログイン</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="8" class="px-6 py-8 text-center text-gray-500">読み込み中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- アカウント作成/編集モーダル -->
+    <div id="user-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 id="modal-title" class="text-xl font-semibold mb-6">新規アカウント作成</h3>
+            <form id="user-form">
+                <input type="hidden" id="user-id" value="">
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">パートナーコード <span class="text-red-500">*</span></label>
+                    <input
+                        type="text"
+                        id="partner-code"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="例: PARTNER003"
+                        required
+                    >
+                    <p class="text-xs text-gray-500 mt-1">英数字のみ、大文字推奨</p>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">パスワード <span class="text-red-500">*</span></label>
+                    <input
+                        type="password"
+                        id="password"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="パスワードを入力"
+                        required
+                    >
+                    <p class="text-xs text-gray-500 mt-1">編集時は変更する場合のみ入力</p>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">名前 <span class="text-red-500">*</span></label>
+                    <input
+                        type="text"
+                        id="name"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="ユーザー名"
+                        required
+                    >
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
+                    <input
+                        type="email"
+                        id="email"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="email@example.com"
+                    >
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">電話番号</label>
+                    <input
+                        type="tel"
+                        id="phone"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="090-1234-5678"
+                    >
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">組織名</label>
+                    <input
+                        type="text"
+                        id="organization"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="会社名・部署名など"
+                    >
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ユーザータイプ <span class="text-red-500">*</span></label>
+                    <select id="user-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        <option value="partner">パートナー</option>
+                        <option value="admin">管理者</option>
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="is-agency" class="mr-2">
+                        <span class="text-sm text-gray-700">社外（代理店）</span>
+                    </label>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="is-active" class="mr-2" checked>
+                        <span class="text-sm text-gray-700">アカウント有効</span>
+                    </label>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">備考</label>
+                    <textarea
+                        id="notes"
+                        rows="3"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="備考・メモ"
+                    ></textarea>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button
+                        type="submit"
+                        class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                    >
+                        保存
+                    </button>
+                    <button
+                        type="button"
+                        id="btn-cancel"
+                        class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    >
+                        キャンセル
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 管理者チェック
+        const isAdmin = sessionStorage.getItem("isAdmin") === "true";
+        const currentPartnerId = sessionStorage.getItem("currentPartnerId");
+        
+        if (!isAdmin || !currentPartnerId) {
+            document.getElementById('admin-check').classList.remove('hidden');
+            document.getElementById('btn-create-user').disabled = true;
+        }
+        
+        // ログアウト
+        document.getElementById('btn-logout').addEventListener('click', () => {
+            sessionStorage.removeItem("currentPartnerId");
+            sessionStorage.removeItem("isAdmin");
+            window.location.href = "/login";
+        });
+        
+        let currentFilters = {
+            user_type: '',
+            is_active: '',
+            is_agency: ''
+        };
+        
+        // ユーザー一覧を読み込む
+        async function loadUsers() {
+            const tbody = document.getElementById('users-table-body');
+            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">読み込み中...</td></tr>';
+            
+            try {
+                const params = new URLSearchParams();
+                if (currentFilters.user_type) params.append('user_type', currentFilters.user_type);
+                if (currentFilters.is_active !== '') params.append('is_active', currentFilters.is_active);
+                
+                const response = await fetch(`/api/admin/users?${params}`);
+                if (!response.ok) throw new Error('ユーザー一覧の取得に失敗しました');
+                
+                const data = await response.json();
+                const users = data.users || [];
+                
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">ユーザーが見つかりません</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = '';
+                users.forEach(user => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    
+                    const lastLogin = user.last_login_at 
+                        ? new Date(user.last_login_at).toLocaleString('ja-JP')
+                        : '未ログイン';
+                    
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">${escapeHtml(user.partner_code)}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${escapeHtml(user.name || '')}</div>
+                            ${user.email ? `<div class="text-xs text-gray-500">${escapeHtml(user.email)}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${escapeHtml(user.organization || '')}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${
+                                user.user_type === 'admin' 
+                                    ? 'bg-purple-100 text-purple-800' 
+                                    : 'bg-blue-100 text-blue-800'
+                            }">
+                                ${user.user_type === 'admin' ? '管理者' : 'パートナー'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${
+                                user.is_agency 
+                                    ? 'bg-orange-100 text-orange-800' 
+                                    : 'bg-green-100 text-green-800'
+                            }">
+                                ${user.is_agency ? '社外' : '社内'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${
+                                user.is_active 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                            }">
+                                ${user.is_active ? '有効' : '無効'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${lastLogin}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button
+                                onclick="editUser('${user.user_id}')"
+                                class="text-blue-600 hover:text-blue-900 mr-3"
+                            >
+                                編集
+                            </button>
+                            ${user.partner_code !== 'ADMIN' ? `
+                                <button
+                                    onclick="deleteUser('${user.user_id}', '${escapeHtml(user.partner_code)}')"
+                                    class="text-red-600 hover:text-red-900"
+                                >
+                                    削除
+                                </button>
+                            ` : ''}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('ユーザー一覧の読み込みエラー:', error);
+                tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-8 text-center text-red-500">エラーが発生しました</td></tr>';
+            }
+        }
+        
+        // ユーザーを編集
+        window.editUser = async function(userId) {
+            try {
+                const response = await fetch(`/api/admin/users`);
+                if (!response.ok) throw new Error('ユーザー情報の取得に失敗しました');
+                
+                const data = await response.json();
+                const user = data.users.find(u => u.user_id === userId);
+                
+                if (!user) {
+                    alert('ユーザーが見つかりません');
+                    return;
+                }
+                
+                document.getElementById('modal-title').textContent = 'アカウント編集';
+                document.getElementById('user-id').value = user.user_id;
+                document.getElementById('partner-code').value = user.partner_code;
+                document.getElementById('partner-code').disabled = true; // パートナーコードは変更不可
+                document.getElementById('password').value = '';
+                document.getElementById('password').required = false;
+                document.getElementById('name').value = user.name || '';
+                document.getElementById('email').value = user.email || '';
+                document.getElementById('phone').value = user.phone || '';
+                document.getElementById('organization').value = user.organization || '';
+                document.getElementById('user-type').value = user.user_type || 'partner';
+                document.getElementById('is-agency').checked = user.is_agency === 1;
+                document.getElementById('is-active').checked = user.is_active === 1;
+                document.getElementById('notes').value = user.notes || '';
+                
+                document.getElementById('user-modal').classList.remove('hidden');
+            } catch (error) {
+                console.error('ユーザー編集エラー:', error);
+                alert('ユーザー情報の取得に失敗しました');
+            }
+        };
+        
+        // ユーザーを削除
+        window.deleteUser = async function(userId, partnerCode) {
+            if (!confirm(`「${partnerCode}」のアカウントを無効化しますか？\n（論理削除：後で再有効化可能）`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/users/${userId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '削除に失敗しました');
+                }
+                
+                alert('アカウントを無効化しました');
+                loadUsers();
+            } catch (error) {
+                console.error('ユーザー削除エラー:', error);
+                alert('削除に失敗しました: ' + error.message);
+            }
+        };
+        
+        // 新規アカウント作成
+        document.getElementById('btn-create-user').addEventListener('click', () => {
+            document.getElementById('modal-title').textContent = '新規アカウント作成';
+            document.getElementById('user-form').reset();
+            document.getElementById('user-id').value = '';
+            document.getElementById('partner-code').disabled = false;
+            document.getElementById('password').required = true;
+            document.getElementById('is-active').checked = true;
+            document.getElementById('user-modal').classList.remove('hidden');
+        });
+        
+        // モーダルを閉じる
+        document.getElementById('btn-cancel').addEventListener('click', () => {
+            document.getElementById('user-modal').classList.add('hidden');
+        });
+        
+        // フォーム送信
+        document.getElementById('user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const userId = document.getElementById('user-id').value;
+            const formData = {
+                partner_code: document.getElementById('partner-code').value.trim().toUpperCase(),
+                name: document.getElementById('name').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                organization: document.getElementById('organization').value.trim(),
+                user_type: document.getElementById('user-type').value,
+                is_agency: document.getElementById('is-agency').checked,
+                is_active: document.getElementById('is-active').checked,
+                notes: document.getElementById('notes').value.trim()
+            };
+            
+            const password = document.getElementById('password').value.trim();
+            if (password) {
+                formData.password = password;
+            } else if (!userId) {
+                alert('パスワードを入力してください');
+                return;
+            }
+            
+            try {
+                let response;
+                if (userId) {
+                    // 更新
+                    response = await fetch(`/api/admin/users/${userId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                } else {
+                    // 作成
+                    response = await fetch('/api/admin/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                }
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '保存に失敗しました');
+                }
+                
+                alert(userId ? 'アカウントを更新しました' : 'アカウントを作成しました');
+                document.getElementById('user-modal').classList.add('hidden');
+                loadUsers();
+            } catch (error) {
+                console.error('保存エラー:', error);
+                alert('保存に失敗しました: ' + error.message);
+            }
+        });
+        
+        // フィルター適用
+        document.getElementById('btn-apply-filter').addEventListener('click', () => {
+            currentFilters.user_type = document.getElementById('filter-user-type').value;
+            currentFilters.is_active = document.getElementById('filter-is-active').value;
+            currentFilters.is_agency = document.getElementById('filter-is-agency').value;
+            loadUsers();
+        });
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 初期読み込み
+        loadUsers();
+    </script>
+</body>
+</html>
+

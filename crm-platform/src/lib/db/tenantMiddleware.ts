@@ -150,7 +150,8 @@ export async function setTenantContextForServerAction(tenantId?: string): Promis
   }
   
   // ヘッダーから取得を試みる
-  const tenantIdFromHeader = headers().get("X-Tenant-ID");
+  const headersList = await headers();
+  const tenantIdFromHeader = headersList.get("X-Tenant-ID");
   if (tenantIdFromHeader) {
     await setTenantContext(tenantIdFromHeader);
     return;

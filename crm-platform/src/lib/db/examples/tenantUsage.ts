@@ -37,9 +37,9 @@ export async function example2_WithTenantContext() {
   // テナントコンテキストを設定した状態で関数を実行
   const result = await withTenantContext(tenantId, async () => {
     const orgs = await db.select().from(organizations);
-    const customers = await db.select().from(customers);
+    const customerList = await db.select().from(customers);
     
-    return { orgs, customers };
+    return { orgs, customers: customerList };
   });
   
   return result;

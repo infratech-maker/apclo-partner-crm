@@ -18,7 +18,7 @@ function smartMerge(existingData: any, scrapedData: any): any {
   const merged: any = { ...existingData };
   const fields = [
     "name", "address", "category", "phone", "open_date", "regular_holiday",
-    "transport", "business_hours", "budget", "related_stores", "is_franchise", "access",
+    "transport", "business_hours", "budget", "website", "related_stores", "is_franchise", "access",
   ];
   for (const field of fields) {
     const newValue = scrapedData[field];
