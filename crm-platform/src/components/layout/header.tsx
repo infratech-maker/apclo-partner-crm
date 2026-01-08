@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { UserNav } from "./user-nav";
+import { ReleaseNotesDialog } from "./release-notes-dialog";
 
 interface HeaderProps {
   userName: string;
@@ -30,6 +31,7 @@ export function Header({ userName, userEmail, userRole }: HeaderProps) {
       <div className="flex flex-1 items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
         <div className="flex items-center gap-4">
+          <ReleaseNotesDialog />
           <UserNav
             userName={userName}
             userEmail={userEmail}

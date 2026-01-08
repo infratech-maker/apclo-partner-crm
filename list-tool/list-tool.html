@@ -504,6 +504,14 @@
               </p>
             </div>
             <div class="flex items-center gap-4">
+              <button
+                id="btn-release-notes"
+                class="px-3 py-2 md:px-4 md:py-2 bg-blue-600 text-white rounded-md text-xs md:text-sm font-medium hover:bg-blue-700 transition flex items-center gap-2"
+                title="リリースノート"
+              >
+                <span>📝</span>
+                <span class="hidden sm:inline">リリースノート</span>
+              </button>
               <span
                 id="partner-id-display"
                 class="hidden sm:inline-flex text-xs md:text-sm font-medium text-slate-600 px-3 py-1 rounded-full bg-slate-100"
@@ -548,7 +556,7 @@
         </div>
 
         <!-- 統計情報セクション（ダッシュボードタブで表示） -->
-        <section id="stats-section" class="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <section id="stats-section" class="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4" style="display: none;">
             <div class="apclo-card p-6">
                 <h3 class="text-gray-500 text-xs font-medium mb-2 uppercase tracking-wide">総店舗数</h3>
                 <p id="total-stores" class="text-3xl font-semibold text-gray-900">-</p>
@@ -573,10 +581,10 @@
         </section>
 
         <!-- グラフセクション（ダッシュボードタブで表示） -->
-        <section id="charts-section" class="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section id="charts-section" class="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6" style="display: none;">
             <!-- 都市別件数グラフ -->
             <div class="apclo-card p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">都市別店舗数（上位20都市）</h3>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">市区町村別店舗数（上位20市区町村）</h3>
                 <div class="relative" style="height: 400px;">
                     <canvas id="city-chart"></canvas>
                 </div>
@@ -725,7 +733,16 @@
                 
                 <!-- カテゴリフィルター -->
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">カテゴリ（複数選択可）</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-semibold text-gray-700">カテゴリ（複数選択可）</label>
+                        <button
+                            id="select-all-categories-btn"
+                            type="button"
+                            class="text-xs px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
+                        >
+                            全件選択
+                        </button>
+                    </div>
                     
                     <input
                         type="text"
@@ -848,29 +865,20 @@
                 
                 <div class="flex gap-2">
                     <button
-                        id="export-csv"
+                        id="export-button"
                         class="apclo-button px-6 py-2 bg-gray-900 text-white text-sm font-medium flex items-center gap-2"
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        CSVエクスポート
-                    </button>
-                    <button
-                        id="export-json"
-                        class="apclo-button px-6 py-2 bg-white text-gray-700 border border-gray-300 text-sm font-medium flex items-center gap-2"
-                    >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        JSONエクスポート
+                        エクスポート
                     </button>
                 </div>
             </div>
         </section>
 
         <!-- 保存したリスト管理セクション（ダッシュボードタブで表示） -->
-        <section id="saved-lists-section" class="mb-8 apclo-card p-6">
+        <section id="saved-lists-section" class="mb-8 apclo-card p-6" style="display: none;">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-900">保存したリスト（CRM管理）</h2>
                 <div class="flex gap-2">
@@ -1870,7 +1878,10 @@
             });
             
             document.getElementById('city-search-input').addEventListener('input', debounce(filterAndDisplayCities, 300));
-            document.getElementById('category-search-input').addEventListener('input', debounce(filterAndDisplayCategories, 300));
+            document.getElementById('category-search-input').addEventListener('input', debounce(() => {
+                filterAndDisplayCategories();
+            }, 300));
+            document.getElementById('select-all-categories-btn').addEventListener('click', handleSelectAllCategories);
             updateSelectedCategoriesDisplay();
             
             // データソースフィルターのUIを生成
@@ -1910,8 +1921,13 @@
             }
             
             document.getElementById('reset-filters').addEventListener('click', resetFilters);
-            document.getElementById('export-csv').addEventListener('click', handleExportCSV);
-            document.getElementById('export-json').addEventListener('click', handleExportJSON);
+            document.getElementById('export-button').addEventListener('click', showExportFormatModal);
+            
+            // リリースノートボタンのイベントリスナー
+            const releaseNotesBtn = document.getElementById('btn-release-notes');
+            if (releaseNotesBtn) {
+                releaseNotesBtn.addEventListener('click', showReleaseNotes);
+            }
 
             // タブ切り替え設定
             const tabButtons = document.querySelectorAll('.lt-tab');
@@ -2009,8 +2025,23 @@
             const ctx = document.getElementById('city-chart');
             if (!ctx) return;
             
-            const cities = Object.keys(cityStats);
-            const counts = Object.values(cityStats);
+            // 都市と店舗数を配列に変換し、店舗数の降順でソート
+            const entries = Object.entries(cityStats)
+                .filter(([city, count]) => count > 0)  // 店舗数が0より大きいもののみ
+                .sort((a, b) => b[1] - a[1]); // 店舗数の降順でソート
+            
+            // データがない場合はチャートを表示しない
+            if (entries.length === 0) {
+                if (cityChart) {
+                    cityChart.destroy();
+                    cityChart = null;
+                }
+                ctx.parentElement.innerHTML = '<p class="text-center text-gray-500 py-8">都市別のデータがありません</p>';
+                return;
+            }
+            
+            const cities = entries.map(entry => entry[0]);
+            const counts = entries.map(entry => entry[1]);
             
             // 既存のチャートを破棄
             if (cityChart) {
@@ -2068,13 +2099,32 @@
             const ctx = document.getElementById('prefecture-chart');
             if (!ctx) return;
             
-            const prefectures = Object.keys(prefectureStats);
-            const counts = Object.values(prefectureStats);
+            // 都道府県と店舗数を配列に変換し、店舗数が0より大きいもののみをフィルター
+            const entries = Object.entries(prefectureStats)
+                .filter(([prefecture, count]) => count > 0)  // 店舗数が0より大きいもののみ
+                .sort((a, b) => b[1] - a[1]); // 店舗数の降順でソート
+            
+            // データがない場合はチャートを表示しない
+            if (entries.length === 0) {
+                if (prefectureChart) {
+                    prefectureChart.destroy();
+                    prefectureChart = null;
+                }
+                ctx.parentElement.innerHTML = '<p class="text-center text-gray-500 py-8">都道府県別のデータがありません</p>';
+                return;
+            }
+            
+            const prefectures = entries.map(entry => entry[0]);
+            const counts = entries.map(entry => entry[1]);
             
             // 既存のチャートを破棄
             if (prefectureChart) {
                 prefectureChart.destroy();
             }
+            
+            // 最大値を取得してX軸の最大値を設定
+            const maxCount = Math.max(...counts);
+            const maxTick = Math.ceil(maxCount * 1.1); // 最大値の110%を上限とする
             
             prefectureChart = new Chart(ctx, {
                 type: 'bar',
@@ -2099,7 +2149,8 @@
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return context.parsed.x.toLocaleString() + '件';
+                                    const value = context.parsed.x || 0;
+                                    return value.toLocaleString() + '件';
                                 }
                             }
                         }
@@ -2107,13 +2158,16 @@
                     scales: {
                         x: {
                             beginAtZero: true,
+                            max: maxTick,  // 最大値を設定
                             ticks: {
                                 callback: function(value) {
                                     return value.toLocaleString();
-                                }
+                                },
+                                stepSize: Math.ceil(maxTick / 10)  // 適切な間隔で表示
                             }
                         },
                         y: {
+                            reverse: false,  // 上から下へ降順（店舗数の多い順）
                             ticks: {
                                 font: {
                                     size: 11
@@ -2456,6 +2510,7 @@
             container.innerHTML = '';
             if (allCategoriesData.length === 0) {
                 container.innerHTML = '<p class="text-xs text-gray-500">カテゴリーデータがありません</p>';
+                updateSelectAllButton();
                 return;
             }
             const filteredCategories = searchQuery
@@ -2463,6 +2518,7 @@
                 : allCategoriesData;
             if (filteredCategories.length === 0) {
                 container.innerHTML = '<p class="text-xs text-gray-500">該当するカテゴリーがありません</p>';
+                updateSelectAllButton();
                 return;
             }
             filteredCategories.forEach(category => {
@@ -2486,6 +2542,7 @@
                         if (index > -1) currentFilters.categories.splice(index, 1);
                     }
                     updateSelectedCategoriesDisplay();
+                    updateSelectAllButton();
                     filterAndDisplayCategories();
                     loadStores(1);
                 });
@@ -2496,6 +2553,63 @@
                 label.appendChild(span);
                 container.appendChild(label);
             });
+            updateSelectAllButton();
+        }
+
+        function updateSelectAllButton() {
+            const selectAllBtn = document.getElementById('select-all-categories-btn');
+            if (!selectAllBtn) return;
+            
+            const searchQuery = document.getElementById('category-search-input').value.toLowerCase().trim();
+            const filteredCategories = searchQuery
+                ? allCategoriesData.filter(cat => cat.toLowerCase().includes(searchQuery))
+                : allCategoriesData;
+            
+            // フィルター後のカテゴリーがすべて選択されているかチェック
+            const allSelected = filteredCategories.length > 0 && 
+                filteredCategories.every(cat => currentFilters.categories.includes(cat));
+            
+            if (allSelected) {
+                selectAllBtn.textContent = '全選択解除';
+                selectAllBtn.className = 'text-xs px-3 py-1 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors';
+            } else {
+                selectAllBtn.textContent = '全件選択';
+                selectAllBtn.className = 'text-xs px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors';
+            }
+        }
+
+        function handleSelectAllCategories() {
+            const searchQuery = document.getElementById('category-search-input').value.toLowerCase().trim();
+            const filteredCategories = searchQuery
+                ? allCategoriesData.filter(cat => cat.toLowerCase().includes(searchQuery))
+                : allCategoriesData;
+            
+            if (filteredCategories.length === 0) return;
+            
+            // フィルター後のカテゴリーがすべて選択されているかチェック
+            const allSelected = filteredCategories.every(cat => currentFilters.categories.includes(cat));
+            
+            if (allSelected) {
+                // 全選択解除：フィルター後のカテゴリーのみを解除
+                filteredCategories.forEach(category => {
+                    const index = currentFilters.categories.indexOf(category);
+                    if (index > -1) {
+                        currentFilters.categories.splice(index, 1);
+                    }
+                });
+            } else {
+                // 全件選択：フィルター後のカテゴリーをすべて選択
+                filteredCategories.forEach(category => {
+                    if (!currentFilters.categories.includes(category)) {
+                        currentFilters.categories.push(category);
+                    }
+                });
+            }
+            
+            updateSelectedCategoriesDisplay();
+            updateSelectAllButton();
+            filterAndDisplayCategories();
+            loadStores(1);
         }
 
         function updateSelectedCategoriesDisplay() {
@@ -3253,16 +3367,25 @@
         
         // 店舗のステータスを取得（API経由）
         let cachedStoreStatuses = {};
+        let storeStatusLoadAttempted = false; // ロード試行フラグ
         async function getStoreStatus(storeId) {
             try {
-                if (Object.keys(cachedStoreStatuses).length === 0) {
+                // 一度だけAPIを呼び出す（複数回の呼び出しを防ぐ）
+                if (!storeStatusLoadAttempted && Object.keys(cachedStoreStatuses).length === 0) {
+                    storeStatusLoadAttempted = true;
+                    try {
                     const currentPartnerId = sessionStorage.getItem("currentPartnerId");
+                        if (currentPartnerId) {
                     const data = await apiCall(`/store-statuses?rep_id=${currentPartnerId}`);
                     cachedStoreStatuses = data.statuses || {};
+                        }
+                    } catch (error) {
+                        // エラーはapiCall内で処理されるため、ここでは何もしない
+                        storeStatusLoadAttempted = false; // リトライ可能にする
+                    }
                 }
                 return cachedStoreStatuses[storeId] || 'none';
             } catch (error) {
-                console.error('ステータス取得エラー:', error);
                 // フォールバック: localStorageから取得
                 const key = getPartnerStorageKey('storeStatuses');
                 const data = localStorage.getItem(key);
@@ -3275,6 +3398,7 @@
         async function saveStoreStatus(storeId, status) {
             try {
                 const currentPartnerId = sessionStorage.getItem("currentPartnerId");
+                if (currentPartnerId) {
                 await apiCall('/store-statuses', {
                     method: 'POST',
                     body: JSON.stringify({
@@ -3283,10 +3407,12 @@
                         status: status
                     })
                 });
+                }
                 cachedStoreStatuses[storeId] = status;
             } catch (error) {
-                console.error('ステータス保存エラー:', error);
-                // フォールバック: localStorageに保存
+                // エラーはapiCall内で処理されるため、ここでは何もしない
+            } finally {
+                // 常にlocalStorageにも保存（フォールバック）
                 const key = getPartnerStorageKey('storeStatuses');
                 const data = localStorage.getItem(key);
                 const statuses = data ? JSON.parse(data) : {};
@@ -3348,19 +3474,32 @@
                 const response = await fetch(`${PARTNER_API_BASE}${endpoint}`, {
                     headers: {
                         'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true',
                         ...options.headers
                     },
                     ...options
                 });
                 
                 if (!response.ok) {
-                    const error = await response.json();
+                    // 404エラーの場合は静かに処理（エンドポイントが存在しない場合）
+                    if (response.status === 404) {
+                        return { statuses: {} };
+                    }
+                    const error = await response.json().catch(() => ({ error: 'API呼び出しエラー' }));
                     throw new Error(error.error || 'API呼び出しエラー');
                 }
                 
                 return await response.json();
             } catch (error) {
-                console.error('API呼び出しエラー:', error);
+                // ネットワークエラーの場合は静かに処理（エンドポイントが存在しない場合）
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    // エンドポイントが存在しない場合は空のレスポンスを返す
+                    return { statuses: {} };
+                }
+                // その他のエラーは警告のみ（大量のエラーを防ぐ）
+                if (!error.silent) {
+                    console.warn('API呼び出しエラー（静かに処理）:', endpoint, error.message);
+                }
                 throw error;
             }
         }
@@ -4458,6 +4597,79 @@
             return div.innerHTML;
         }
 
+        // エクスポート形式選択モーダル
+        function showExportFormatModal() {
+            const modal = document.createElement('div');
+            modal.id = 'export-format-modal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+                    <div class="text-center">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-6">エクスポート形式を選択</h3>
+                        <div class="space-y-3">
+                            <button
+                                id="export-format-csv"
+                                class="w-full px-6 py-3 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                CSV形式
+                            </button>
+                            <button
+                                id="export-format-json"
+                                class="w-full px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                JSON形式
+                            </button>
+                            <button
+                                id="export-format-excel"
+                                class="w-full px-6 py-3 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Excel形式
+                            </button>
+                            <button
+                                id="export-format-cancel"
+                                class="w-full px-6 py-3 bg-gray-200 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-300 transition-colors"
+                            >
+                                キャンセル
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // イベントリスナーを追加
+            document.getElementById('export-format-csv').addEventListener('click', () => {
+                modal.remove();
+                handleExportCSV();
+            });
+            document.getElementById('export-format-json').addEventListener('click', () => {
+                modal.remove();
+                handleExportJSON();
+            });
+            document.getElementById('export-format-excel').addEventListener('click', () => {
+                modal.remove();
+                handleExportExcel();
+            });
+            document.getElementById('export-format-cancel').addEventListener('click', () => {
+                modal.remove();
+            });
+            // モーダル外をクリックで閉じる
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+
         // エクスポート処理中のモーダル表示
         function showExportModal(format) {
             const modal = document.createElement('div');
@@ -4467,7 +4679,7 @@
                 <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
                     <div class="text-center">
                         <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                        <h3 class="text-lg font-semibold text-gray-900 mb-2">${format === 'CSV' ? 'CSV' : 'JSON'}エクスポート処理中</h3>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">${format === 'CSV' ? 'CSV' : format === 'JSON' ? 'JSON' : 'Excel'}エクスポート処理中</h3>
                         <p class="text-sm text-gray-600 mb-4">データを準備しています...</p>
                         <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
                             <div id="export-progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
@@ -4717,7 +4929,7 @@
                 
                 // モーダルが存在する場合のみ閉じる
                 if (modal && progressInterval) {
-                    hideExportModal(modal, progressInterval);
+                hideExportModal(modal, progressInterval);
                 }
                 
                 let errorMessage = 'CSVエクスポートに失敗しました。\n';
@@ -4730,8 +4942,217 @@
                     
                     if (status === '403') {
                         errorMessage = 'CSVエクスポートに失敗しました。\nアクセスが拒否されました（403エラー）。\n\nngrokを使用している場合、ブラウザの警告ページをスキップしてください。\nまたは、サーバーのログを確認してください。';
-                    } else {
+                } else {
                         errorMessage = `CSVエクスポートに失敗しました。\nサーバーエラーが発生しました（HTTP ${status}）。\n\n${error.message}\n\nブラウザのコンソール（F12）で詳細を確認してください。`;
+                    }
+                } else {
+                    errorMessage += error.message || '不明なエラーが発生しました。';
+                    errorMessage += '\n\nブラウザのコンソール（F12）で詳細を確認してください。';
+                }
+                
+                alert(errorMessage);
+            }
+        }
+
+        async function handleExportExcel() {
+            let url = '';
+            let modal, progressInterval;
+            try {
+                const params = new URLSearchParams({
+                    search: currentFilters.search || '',
+                    search_mode: currentFilters.searchMode || 'AND',
+                    match_type: currentFilters.matchType || 'partial'
+                });
+                
+                // フィルターパラメータを追加
+                if (currentFilters.prefectures && currentFilters.prefectures.length > 0) {
+                    currentFilters.prefectures.forEach(pref => params.append('prefectures', pref));
+                }
+                if (currentFilters.cities && currentFilters.cities.length > 0) {
+                    currentFilters.cities.forEach(city => params.append('cities', city));
+                }
+                if (currentFilters.categories && currentFilters.categories.length > 0) {
+                    currentFilters.categories.forEach(cat => params.append('categories', cat));
+                }
+                if (currentFilters.deliveryServices && currentFilters.deliveryServices.length > 0) {
+                    // データソースフィルター
+                    if (currentFilters.dataSources.length > 0 && currentFilters.dataSources.length < DATA_SOURCES.length) {
+                        currentFilters.dataSources.forEach(source => params.append('data_sources', source));
+                    }
+                }
+                
+                url = `${STORE_API_BASE}/api/export/excel?${params}`;
+                
+                console.log('Excelエクスポート開始:', {
+                    url: url,
+                    filters: currentFilters,
+                    params: params.toString()
+                });
+                
+                // モーダル表示
+                const modalResult = showExportModal('Excel');
+                modal = modalResult.modal;
+                progressInterval = modalResult.progressInterval;
+                
+                const progressBar = document.getElementById('export-progress-bar');
+                const progressText = document.getElementById('export-progress-text');
+                
+                // プログレスバーを30%に
+                if (progressBar && progressText) {
+                    progressBar.style.width = '30%';
+                    progressText.textContent = '30% - リクエスト送信中...';
+                }
+                
+                // fetch APIでリクエスト（タイムアウト設定を延長）
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 600000); // 10分タイムアウト
+                
+                // 進捗をシミュレート（実際のレスポンスを待つ間）
+                const progressSimulation = setInterval(() => {
+                    const currentWidth = parseFloat(progressBar?.style.width || '30');
+                    if (currentWidth < 70) {
+                        const newWidth = Math.min(currentWidth + 0.5, 70);
+                        if (progressBar && progressText) {
+                            progressBar.style.width = `${newWidth}%`;
+                            progressText.textContent = `${Math.floor(newWidth)}% - サーバー処理中...`;
+                        }
+                    }
+                }, 500);
+                
+                // ngrokの警告ページをスキップするためのヘッダーを追加
+                let response;
+                try {
+                    response = await fetch(url, {
+                        signal: controller.signal,
+                        headers: {
+                            'ngrok-skip-browser-warning': 'true'
+                        }
+                    });
+                } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    clearInterval(progressSimulation);
+                    // エラー時も進捗を更新
+                    if (progressBar && progressText) {
+                        progressBar.style.width = '100%';
+                        progressText.textContent = 'エラー発生';
+                    }
+                    console.error('Fetchエラー:', fetchError);
+                    throw new Error(`ネットワークエラー: ${fetchError.message || '接続に失敗しました。ngrokの接続を確認してください。'}`);
+                }
+                
+                clearTimeout(timeoutId);
+                clearInterval(progressSimulation);
+                
+                // プログレスバーを75%に
+                if (progressBar && progressText) {
+                    progressBar.style.width = '75%';
+                    progressText.textContent = '75% - データ受信中...';
+                }
+                
+                if (!response.ok) {
+                    // 403エラーの場合、より詳細な情報を提供
+                    if (response.status === 403) {
+                        const errorText = await response.text().catch(() => '');
+                        console.error('403エラーの詳細:', errorText);
+                        throw new Error(`HTTP error! status: ${response.status} - アクセスが拒否されました。ngrokの警告ページが表示されている可能性があります。`);
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // プログレスバーを85%に
+                if (progressBar && progressText) {
+                    progressBar.style.width = '85%';
+                    progressText.textContent = '85% - データ処理中...';
+                }
+                
+                // Blobとして取得
+                const blob = await response.blob();
+                
+                // Blobサイズの確認
+                if (blob.size === 0) {
+                    throw new Error('ダウンロードファイルのサイズが0バイトです。データが正しく取得できていません。');
+                }
+                
+                console.log(`Excelファイルサイズ: ${(blob.size / 1024).toFixed(2)}KB`);
+                
+                // ダウンロードリンクを作成
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const filename = `restaurants_export_${new Date().getTime()}.xlsx`;
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+                
+                // ダウンロード履歴を保存
+                const currentPartnerId = sessionStorage.getItem("currentPartnerId");
+                let estimatedCount = 0;
+                if (currentPartnerId) {
+                    const downloadHistoryKey = `download_history_${currentPartnerId}`;
+                    const downloadHistory = JSON.parse(localStorage.getItem(downloadHistoryKey) || '[]');
+                    // ファイルサイズを推定（バイト数から）
+                    estimatedCount = Math.floor(blob.size / 300); // Excelは1件あたり約300バイトと仮定
+                    downloadHistory.unshift({
+                        filename: filename,
+                        downloadedAt: new Date().toISOString(),
+                        count: estimatedCount,
+                        type: 'Excel',
+                        size: blob.size
+                    });
+                    // 最新100件のみ保持
+                    if (downloadHistory.length > 100) {
+                        downloadHistory.splice(100);
+                    }
+                    localStorage.setItem(downloadHistoryKey, JSON.stringify(downloadHistory));
+                }
+                
+                // プログレスバーを100%に
+                if (progressBar && progressText) {
+                    progressBar.style.width = '100%';
+                    progressText.textContent = '100% - 完了！';
+                }
+                
+                // 少し待ってからモーダルを閉じる
+                setTimeout(() => {
+                    hideExportModal(modal, progressInterval);
+                }, 1000);
+                
+                console.log('Excelエクスポート完了:', {
+                    filename: filename,
+                    size: `${(blob.size / 1024).toFixed(2)}KB`,
+                    records: estimatedCount || '不明'
+                });
+                
+            } catch (error) {
+                console.error('Excelエクスポートエラー:', error);
+                console.error('エラー詳細:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                    url: url || '未定義'
+                });
+                
+                // モーダルが存在する場合のみ閉じる
+                if (modal && progressInterval) {
+                    hideExportModal(modal, progressInterval);
+                }
+                
+                let errorMessage = 'Excelエクスポートに失敗しました。\n';
+                
+                if (error.name === 'AbortError') {
+                    errorMessage = 'Excelエクスポートがタイムアウトしました。\nデータ量が多い場合は、フィルターを適用して件数を減らしてください。';
+                } else if (error.message && error.message.includes('ネットワークエラー')) {
+                    errorMessage = 'Excelエクスポートに失敗しました。\nネットワーク接続エラーが発生しました。\n\n' + error.message + '\n\nngrokの接続が不安定な可能性があります。\nページをリロードして再度お試しください。';
+                } else if (error.message && error.message.includes('HTTP error')) {
+                    const statusMatch = error.message.match(/status: (\d+)/);
+                    const status = statusMatch ? statusMatch[1] : '不明';
+                    
+                    if (status === '403') {
+                        errorMessage = 'Excelエクスポートに失敗しました。\nアクセスが拒否されました（403エラー）。\n\nngrokを使用している場合、ブラウザの警告ページをスキップしてください。\nまたは、サーバーのログを確認してください。';
+                    } else {
+                        errorMessage = `Excelエクスポートに失敗しました。\nサーバーエラーが発生しました（HTTP ${status}）。\n\n${error.message}\n\nブラウザのコンソール（F12）で詳細を確認してください。`;
                     }
                 } else {
                     errorMessage += error.message || '不明なエラーが発生しました。';
@@ -5658,6 +6079,176 @@
         // 再ダウンロード（ダウンロード履歴から）
         window.reDownloadList = function(filename, count) {
             alert(`「${filename}」の再ダウンロード機能は準備中です。\n件数: ${count}件`);
+        }
+
+        // ==================== リリースノート機能 ====================
+        function showReleaseNotes() {
+            const modal = document.createElement('div');
+            modal.id = 'release-notes-modal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900">📝 リリースノート</h2>
+                        <button
+                            id="close-release-notes"
+                            class="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                        >
+                            ×
+                        </button>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            ${new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        </span>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <!-- 機能1: カテゴリー検索の改善 -->
+                        <div class="border border-gray-200 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <span>🔍</span>
+                                <span>カテゴリー検索の改善</span>
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-sm font-medium text-red-600 mb-2">Before</p>
+                                    <div class="bg-red-50 border border-red-200 rounded p-4">
+                                        <p class="text-sm text-gray-700 mb-2">カテゴリーリストに以下のような値が表示されていました：</p>
+                                        <ul class="text-xs text-gray-600 space-y-1 list-disc list-inside">
+                                            <li>あざみ野駅 100m / ドーナツ</li>
+                                            <li>あびこ駅 313m / カフェ、スイーツ</li>
+                                            <li>松山市 / 居酒屋</li>
+                                        </ul>
+                                        <p class="text-xs text-gray-600 mt-2">駅名や距離情報が混在し、検索が正しく動作しませんでした。</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-green-600 mb-2">After</p>
+                                    <div class="bg-green-50 border border-green-200 rounded p-4">
+                                        <p class="text-sm text-gray-700 mb-2">純粋なカテゴリー名のみが表示されます：</p>
+                                        <ul class="text-xs text-gray-600 space-y-1 list-disc list-inside">
+                                            <li>ドーナツ</li>
+                                            <li>カフェ</li>
+                                            <li>スイーツ</li>
+                                            <li>居酒屋</li>
+                                        </ul>
+                                        <p class="text-xs text-gray-600 mt-2">駅名や距離情報を自動的に除去し、検索が正しく動作するようになりました。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 機能2: 全件選択機能 -->
+                        <div class="border border-gray-200 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <span>✅</span>
+                                <span>カテゴリー全件選択機能の追加</span>
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-sm font-medium text-red-600 mb-2">Before</p>
+                                    <div class="bg-red-50 border border-red-200 rounded p-4">
+                                        <p class="text-sm text-gray-700 mb-2">カテゴリーを選択するには、各チェックボックスを個別にクリックする必要がありました。</p>
+                                        <p class="text-xs text-gray-600 mt-2">大量のカテゴリーを選択する場合、非常に時間がかかっていました。</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-green-600 mb-2">After</p>
+                                    <div class="bg-green-50 border border-green-200 rounded p-4">
+                                        <p class="text-sm text-gray-700 mb-2">「全件選択」ボタンをクリックするだけで、すべてのカテゴリーを一度に選択できます。</p>
+                                        <ul class="text-xs text-gray-600 space-y-1 list-disc list-inside mt-2">
+                                            <li>検索フィルター適用時は、表示中のカテゴリーのみを選択</li>
+                                            <li>すべて選択済みの場合は「全選択解除」ボタンに切り替え</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 機能3: Excelエクスポート -->
+                        <div class="border border-gray-200 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <span>📊</span>
+                                <span>Excelエクスポート機能の追加</span>
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-sm font-medium text-red-600 mb-2">Before</p>
+                                    <div class="bg-red-50 border border-red-200 rounded p-4">
+                                        <p class="text-sm text-gray-700 mb-2">データのエクスポートはCSV形式とJSON形式のみでした。</p>
+                                        <p class="text-xs text-gray-600 mt-2">Excelで開く場合、手動でインポートする必要がありました。</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-green-600 mb-2">After</p>
+                                    <div class="bg-green-50 border border-green-200 rounded p-4">
+                                        <p class="text-sm text-gray-700 mb-2">エクスポートボタンをクリックすると、形式選択モーダルが表示されます：</p>
+                                        <ul class="text-xs text-gray-600 space-y-1 list-disc list-inside mt-2">
+                                            <li>CSV形式</li>
+                                            <li>JSON形式</li>
+                                            <li><strong>Excel形式（新規追加）</strong></li>
+                                        </ul>
+                                        <p class="text-xs text-gray-600 mt-2">Excel形式では、見やすい表形式でデータをエクスポートできます。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 機能4: エラーハンドリングの改善 -->
+                        <div class="border border-gray-200 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                                <span>🛠️</span>
+                                <span>エラーハンドリングの改善</span>
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-sm font-medium text-red-600 mb-2">Before</p>
+                                    <div class="bg-red-50 border border-red-200 rounded p-4">
+                                        <p class="text-sm text-gray-700 mb-2">APIエラーが発生すると、コンソールに大量のエラーメッセージが表示されていました。</p>
+                                        <p class="text-xs text-gray-600 mt-2">エンドポイントが存在しない場合でも、エラーが繰り返し表示されていました。</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-green-600 mb-2">After</p>
+                                    <div class="bg-green-50 border border-green-200 rounded p-4">
+                                        <p class="text-sm text-gray-700 mb-2">エラーハンドリングを改善し、以下の対応を行いました：</p>
+                                        <ul class="text-xs text-gray-600 space-y-1 list-disc list-inside mt-2">
+                                            <li>ngrokヘッダーを追加して接続エラーを防止</li>
+                                            <li>エラーを静かに処理し、コンソールのノイズを削減</li>
+                                            <li>localStorageへのフォールバック機能を強化</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 flex justify-end">
+                        <button
+                            id="close-release-notes-btn"
+                            class="px-6 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                        >
+                            閉じる
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // 閉じるボタンのイベント
+            const closeModal = () => {
+                modal.remove();
+            };
+            
+            document.getElementById('close-release-notes').addEventListener('click', closeModal);
+            document.getElementById('close-release-notes-btn').addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
         }
     </script>
 </body>

@@ -43,3 +43,6 @@ echo ""
 echo "📊 残存プロセスの確認:"
 ps aux | grep -E "(collect-missing-phones|import-new-open)" | grep -v grep || echo "   実行中のプロセスはありません"
 
+
+
+

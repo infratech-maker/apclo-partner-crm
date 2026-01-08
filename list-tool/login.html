@@ -82,17 +82,72 @@
   </div>
 
   <script>
-    document.getElementById("login-form").addEventListener("submit", function (e) {
+    document.getElementById("login-form").addEventListener("submit", async function (e) {
       e.preventDefault();
 
-      // 簡易実装: フロント側でパートナーIDだけ保持して遷移
-      const partnerId = (document.getElementById("partner-id").value || "PARTNER").trim();
-      const isAdmin = partnerId.toUpperCase() === "ADMIN";
+      const partnerId = document.getElementById("partner-id").value.trim();
+      const password = document.getElementById("password").value;
+      const submitButton = e.target.querySelector('button[type="submit"]');
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'mt-2 text-sm text-red-600';
+      errorDiv.id = 'login-error';
 
-      sessionStorage.setItem("currentPartnerId", partnerId);
-      sessionStorage.setItem("isAdmin", isAdmin ? "true" : "false");
+      // 既存のエラーメッセージを削除
+      const existingError = document.getElementById('login-error');
+      if (existingError) {
+        existingError.remove();
+      }
 
-      window.location.href = "/list-tool";
+      if (!partnerId || !password) {
+        errorDiv.textContent = 'パートナーIDとパスワードを入力してください';
+        e.target.appendChild(errorDiv);
+        return;
+      }
+
+      // ローディング状態
+      submitButton.disabled = true;
+      submitButton.textContent = 'ログイン中...';
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            partner_code: partnerId,
+            password: password
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'ログインに失敗しました');
+        }
+
+        // ログイン成功
+        if (data.success && data.user) {
+          sessionStorage.setItem("currentPartnerId", data.user.partner_code);
+          sessionStorage.setItem("isAdmin", data.user.is_admin ? "true" : "false");
+          sessionStorage.setItem("userName", data.user.name);
+          sessionStorage.setItem("userType", data.user.user_type);
+
+          // 警告メッセージがある場合は表示
+          if (data.warning) {
+            console.warn(data.warning);
+          }
+
+          window.location.href = "/list-tool";
+        } else {
+          throw new Error('ログインに失敗しました');
+        }
+      } catch (error) {
+        errorDiv.textContent = error.message || 'ログインに失敗しました。サーバーに接続できません。';
+        e.target.appendChild(errorDiv);
+        submitButton.disabled = false;
+        submitButton.textContent = 'ログイン';
+      }
     });
   </script>
 </body>

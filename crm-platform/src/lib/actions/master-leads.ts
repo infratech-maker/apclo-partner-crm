@@ -17,24 +17,36 @@ export async function getMasterLeads(
   pageSize: number = 20,
   query?: string
 ) {
-  const session = await auth();
+  try {
+    const session = await auth();
 
-  if (!session?.user) {
-    throw new Error("Unauthorized");
-  }
+    if (!session?.user) {
+      throw new Error("Unauthorized");
+    }
 
-  const { tenantId } = session.user;
+    const { tenantId } = session.user;
 
-  // ユーザーの主所属組織を取得
-  const userOrg = await prisma.userOrganization.findFirst({
-    where: {
-      userId: session.user.id,
-      isPrimary: true,
-    },
-    select: {
-      organizationId: true,
-    },
-  });
+    // ユーザーの主所属組織を取得
+    let userOrg;
+    try {
+      userOrg = await prisma.userOrganization.findFirst({
+        where: {
+          userId: session.user.id,
+          isPrimary: true,
+        },
+        select: {
+          organizationId: true,
+        },
+      });
+    } catch (dbError: any) {
+      console.error("Database connection error in getMasterLeads:", dbError);
+      // データベース接続エラーの場合、より詳細なエラーメッセージを返す
+      if (dbError.message?.includes("Can't reach database server") || 
+          dbError.message?.includes("connect ECONNREFUSED")) {
+        throw new Error("データベースサーバーに接続できません。PostgreSQLが起動しているか確認してください。");
+      }
+      throw dbError;
+    }
 
   if (!userOrg) {
     // 組織が設定されていない場合は空の結果を返す
@@ -196,6 +208,15 @@ export async function getMasterLeads(
     pageSize,
     totalPages,
   };
+  } catch (error: any) {
+    console.error("Error in getMasterLeads:", error);
+    // データベース接続エラーの場合、より詳細なエラーメッセージを返す
+    if (error.message?.includes("Can't reach database server") || 
+        error.message?.includes("connect ECONNREFUSED")) {
+      throw new Error("データベースサーバーに接続できません。PostgreSQLが起動しているか確認してください。");
+    }
+    throw error;
+  }
 }
 
 /**
@@ -207,54 +228,66 @@ export async function getMasterLeadsAsLeads(
   query?: string,
   statuses?: string[]
 ) {
-  const session = await auth();
+  try {
+    const session = await auth();
 
-  if (!session?.user) {
-    throw new Error("Unauthorized");
-  }
+    if (!session?.user) {
+      throw new Error("Unauthorized");
+    }
 
-  const { tenantId } = session.user;
+    const { tenantId } = session.user;
 
-  // ユーザーの主所属組織を取得
-  const userOrg = await prisma.userOrganization.findFirst({
-    where: {
-      userId: session.user.id,
-      isPrimary: true,
-    },
-    select: {
-      organizationId: true,
-    },
-  });
+    // ユーザーの主所属組織を取得
+    let userOrg;
+    try {
+      userOrg = await prisma.userOrganization.findFirst({
+        where: {
+          userId: session.user.id,
+          isPrimary: true,
+        },
+        select: {
+          organizationId: true,
+        },
+      });
+    } catch (dbError: any) {
+      console.error("Database connection error in getMasterLeadsAsLeads:", dbError);
+      // データベース接続エラーの場合、より詳細なエラーメッセージを返す
+      if (dbError.message?.includes("Can't reach database server") || 
+          dbError.message?.includes("connect ECONNREFUSED")) {
+        throw new Error("データベースサーバーに接続できません。PostgreSQLが起動しているか確認してください。");
+      }
+      throw dbError;
+    }
 
-  if (!userOrg) {
-    return {
-      leads: [],
-      total: 0,
-      page,
-      pageSize,
-      totalPages: 0,
-    };
-  }
+    if (!userOrg) {
+      return {
+        leads: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      };
+    }
 
-  const skip = (page - 1) * pageSize;
+    const skip = (page - 1) * pageSize;
 
-  // where条件を動的に構築
-  let whereCondition: Prisma.MasterLeadWhereInput = {};
+    // where条件を動的に構築
+    let whereCondition: Prisma.MasterLeadWhereInput = {};
 
-  // キーワード検索がある場合
-  if (query && query.trim().length > 0) {
-    const searchQuery = query.trim();
-    whereCondition = {
-      OR: [
-        { companyName: { contains: searchQuery, mode: "insensitive" } },
-        { phone: { contains: searchQuery, mode: "insensitive" } },
-        { address: { contains: searchQuery, mode: "insensitive" } },
-      ],
-    };
-  }
+    // キーワード検索がある場合
+    if (query && query.trim().length > 0) {
+      const searchQuery = query.trim();
+      whereCondition = {
+        OR: [
+          { companyName: { contains: searchQuery, mode: "insensitive" } },
+          { phone: { contains: searchQuery, mode: "insensitive" } },
+          { address: { contains: searchQuery, mode: "insensitive" } },
+        ],
+      };
+    }
 
-  // マスターリードを取得（紐付いているリードのステータスでフィルタリング）
-  const masterLeads = await prisma.masterLead.findMany({
+    // マスターリードを取得（紐付いているリードのステータスでフィルタリング）
+    const masterLeads = await prisma.masterLead.findMany({
     where: whereCondition,
     skip,
     take: pageSize,
@@ -289,59 +322,68 @@ export async function getMasterLeadsAsLeads(
         },
       },
     },
-  });
+    });
 
-  // ステータスフィルターがある場合は、該当するリードを持つマスターのみを返す
-  const filteredMasterLeads = statuses && statuses.length > 0
-    ? masterLeads.filter((ml) => ml._count.leads > 0)
-    : masterLeads;
+    // ステータスフィルターがある場合は、該当するリードを持つマスターのみを返す
+    const filteredMasterLeads = statuses && statuses.length > 0
+      ? masterLeads.filter((ml) => ml._count.leads > 0)
+      : masterLeads;
 
-  // 総件数を取得
-  const total = await prisma.masterLead.count({
-    where: {
-      ...whereCondition,
-      ...(statuses && statuses.length > 0
-        ? {
-            leads: {
-              some: {
-                tenantId,
-                organizationId: userOrg.organizationId,
-                status: { in: statuses },
+    // 総件数を取得
+    const total = await prisma.masterLead.count({
+      where: {
+        ...whereCondition,
+        ...(statuses && statuses.length > 0
+          ? {
+              leads: {
+                some: {
+                  tenantId,
+                  organizationId: userOrg.organizationId,
+                  status: { in: statuses },
+                },
               },
-            },
-          }
-        : {}),
-    },
-  });
+            }
+          : {}),
+      },
+    });
 
-  const totalPages = Math.ceil(total / pageSize);
+    const totalPages = Math.ceil(total / pageSize);
 
-  // Lead型の形式に変換
-  const leads = filteredMasterLeads.map((ml) => {
-    // 最新のリードを取得（なければマスターリードのデータを使用）
-    const latestLead = ml.leads[0];
+    // Lead型の形式に変換
+    const leads = filteredMasterLeads.map((ml) => {
+      // 最新のリードを取得（なければマスターリードのデータを使用）
+      const latestLead = ml.leads[0];
+
+      return {
+        id: ml.id, // マスターリードのIDを使用
+        source: ml.source,
+        data: ml.data as any,
+        status: latestLead?.status || "new",
+        notes: latestLead?.notes || null,
+        createdAt: ml.createdAt,
+        updatedAt: ml.updatedAt,
+        // マスターリード情報を追加
+        masterLeadId: ml.id,
+        leadsCount: ml._count.leads,
+      };
+    });
 
     return {
-      id: ml.id, // マスターリードのIDを使用
-      source: ml.source,
-      data: ml.data as any,
-      status: latestLead?.status || "new",
-      notes: latestLead?.notes || null,
-      createdAt: ml.createdAt,
-      updatedAt: ml.updatedAt,
-      // マスターリード情報を追加
-      masterLeadId: ml.id,
-      leadsCount: ml._count.leads,
+      leads,
+      total,
+      page,
+      pageSize,
+      totalPages,
     };
-  });
-
-  return {
-    leads,
-    total,
-    page,
-    pageSize,
-    totalPages,
-  };
+  } catch (error: any) {
+    console.error("Error in getMasterLeadsAsLeads:", error);
+    // データベース接続エラーの場合、より詳細なエラーメッセージを返す
+    if (error.message?.includes("Can't reach database server") || 
+        error.message?.includes("connect ECONNREFUSED")) {
+      throw new Error("データベースサーバーに接続できません。PostgreSQLが起動しているか確認してください。");
+    }
+    throw error;
+  }
 }
 
 /**

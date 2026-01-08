@@ -86,3 +86,6 @@ echo "✅ 進捗状況を保存しました:"
 echo "   - 新規リスト収集: $PROGRESS_DIR/last-collected-page_$TIMESTAMP.txt"
 echo "   - 電話番号収集: $PROGRESS_DIR/phone-collection-progress_$TIMESTAMP.txt"
 
+
+
+

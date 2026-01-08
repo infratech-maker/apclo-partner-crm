@@ -24,3 +24,6 @@ echo $PID > ./logs/scraper.pid
 
 
 
+
+
+

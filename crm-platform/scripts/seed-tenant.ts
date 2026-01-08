@@ -22,21 +22,30 @@ async function seedTenant() {
   try {
     console.log("Creating test tenant...");
 
-    // RLSをバイパスして直接挿入（ON CONFLICT DO NOTHING）
-    await db.execute(
-      sql`
-        INSERT INTO tenants (id, name, slug, is_active, created_at, updated_at)
-        VALUES (
-          ${TEST_TENANT_ID}::uuid,
-          ${TEST_TENANT_NAME},
-          ${TEST_TENANT_SLUG},
-          true,
-          NOW(),
-          NOW()
-        )
-        ON CONFLICT (id) DO NOTHING
-      `
-    );
+    // 既存のテナントを確認
+    const existingTenant = await db
+      .select()
+      .from(tenants)
+      .where(sql`${tenants.id} = ${TEST_TENANT_ID}::uuid`)
+      .limit(1);
+
+    if (existingTenant.length > 0) {
+      console.log("✅ Test tenant already exists!");
+      console.log(`   ID: ${existingTenant[0].id}`);
+      console.log(`   Name: ${existingTenant[0].name}`);
+      console.log(`   Slug: ${existingTenant[0].slug}`);
+      console.log(`\n   Add this to your .env.local:`);
+      console.log(`   TEST_TENANT_ID=${TEST_TENANT_ID}`);
+      return;
+    }
+
+    // Drizzle ORMを使って直接挿入
+    await db.insert(tenants).values({
+      id: TEST_TENANT_ID,
+      name: TEST_TENANT_NAME,
+      slug: TEST_TENANT_SLUG,
+      isActive: true,
+    });
 
     // 確認
     const tenant = await db
@@ -53,11 +62,18 @@ async function seedTenant() {
       console.log(`\n   Add this to your .env.local:`);
       console.log(`   TEST_TENANT_ID=${TEST_TENANT_ID}`);
     } else {
-      console.log("⚠️  Tenant already exists or creation failed.");
+      console.log("⚠️  Tenant creation failed.");
     }
-  } catch (error) {
-    console.error("❌ Error creating test tenant:", error);
-    process.exit(1);
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      // ユニーク制約違反（既に存在する）
+      console.log("✅ Test tenant already exists!");
+      console.log(`\n   Add this to your .env.local:`);
+      console.log(`   TEST_TENANT_ID=${TEST_TENANT_ID}`);
+    } else {
+      console.error("❌ Error creating test tenant:", error);
+      process.exit(1);
+    }
   } finally {
     process.exit(0);
   }

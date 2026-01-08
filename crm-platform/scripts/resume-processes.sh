@@ -50,3 +50,6 @@ echo ""
 echo "📊 実行中のプロセス:"
 ps aux | grep -E "(collect-missing-phones|import-new-open)" | grep -v grep | head -5
 
+
+
+

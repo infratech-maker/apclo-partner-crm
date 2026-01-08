@@ -20,6 +20,9 @@ export interface ScrapingResult {
   website?: string; // 公式アカウント（HPURL）
   related_stores?: string | string[];
   is_franchise?: boolean;
+  takeout_available?: boolean; // テイクアウト可否
+  delivery_available?: boolean; // デリバリー可否
+  delivery_services?: string[]; // デリバリーサービス名（Uber Eats、出前館など）
   url: string;
   // UberEats用フィールド
   latitude?: number | null;
@@ -1344,6 +1347,538 @@ function formatUbereatsBusinessHours(hours: any): string | null {
 }
 
 /**
+ * グルナビの店舗詳細ページから情報を取得
+ * 
+ * @param url グルナビの店舗URL
+ * @returns スクレイピング結果
+ */
+export async function scrapeGnaviStore(url: string): Promise<ScrapingResult> {
+  let browser: Browser | null = null;
+
+  try {
+    // ブラウザを起動
+    browser = await chromium.launch({
+      headless: true,
+    });
+
+    const context = await browser.newContext({
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    });
+
+    const page = await context.newPage();
+
+    // ページにアクセス
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+    // 基本情報を取得
+    const result: ScrapingResult = {
+      url: url,
+    };
+
+    // ヘルパー関数: 特定のCSSセレクタからテキストを取得
+    const getTextBySelector = async (selector: string): Promise<string | null> => {
+      try {
+        const el = page.locator(selector).first();
+        if (await el.isVisible({ timeout: 500 }).catch(() => false)) {
+          let text = await el.innerText();
+          return text.replace(/\s+/g, ' ').trim();
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    };
+
+    // ページが完全に読み込まれるまで待機
+    await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+
+    // 店舗名を取得
+    try {
+      let name: string | null = null;
+      
+      // 方法1: ページタイトルから取得
+      try {
+        const title = await page.title();
+        if (title) {
+          // タイトルから「店舗名 - エリア - ぐるなび」の形式を解析
+          const titleMatch = title.match(/^([^-]+?)\s*-\s*[^-]+/);
+          if (titleMatch && titleMatch[1]) {
+            name = titleMatch[1].trim();
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to get name from title:", error);
+      }
+      
+      // 方法2: メタタグから取得
+      if (!name) {
+        try {
+          const ogTitle = await page.locator('meta[property="og:title"]').getAttribute('content');
+          if (ogTitle) {
+            const ogMatch = ogTitle.match(/^([^-]+?)\s*-\s*[^-]+/);
+            if (ogMatch && ogMatch[1]) {
+              name = ogMatch[1].trim();
+            }
+          }
+        } catch (error) {
+          // メタタグ取得失敗は無視
+        }
+      }
+      
+      // 方法3: h1タグから取得
+      if (!name) {
+        const h1Selectors = [
+          "h1.shop-name",
+          "h1.store-name",
+          "h1",
+        ];
+        
+        for (const selector of h1Selectors) {
+          try {
+            const nameElement = page.locator(selector).first();
+            if (await nameElement.isVisible({ timeout: 1000 }).catch(() => false)) {
+              const text = await nameElement.textContent();
+              if (text && text.trim().length > 0 && text.trim().length < 100) {
+                name = text.trim();
+                break;
+              }
+            }
+          } catch {
+            continue;
+          }
+        }
+      }
+      
+      if (name) {
+        result.name = name
+          .replace(/\n/g, " ")
+          .replace(/\r/g, "")
+          .replace(/\t/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+    } catch (error) {
+      console.warn("Failed to get store name:", error);
+    }
+
+    // 住所を取得
+    try {
+      // グルナビの住所セレクタを試行
+      const addressSelectors = [
+        ".shop-address",
+        ".store-address",
+        ".address",
+        "[itemprop='address']",
+        "dl dt:has-text('住所') + dd",
+        "table tr:has-text('住所') td",
+      ];
+      
+      for (const selector of addressSelectors) {
+        try {
+          const addressElement = page.locator(selector).first();
+          if (await addressElement.isVisible({ timeout: 500 }).catch(() => false)) {
+            const addressText = await addressElement.innerText();
+            if (addressText && addressText.trim().length > 0) {
+              result.address = addressText
+                .replace(/\n/g, " ")
+                .replace(/\r/g, "")
+                .replace(/\t/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
+              break;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to get address:", error);
+    }
+
+    // カテゴリを取得
+    try {
+      const categorySelectors = [
+        ".shop-genre",
+        ".store-genre",
+        ".genre",
+        "[itemprop='servesCuisine']",
+        "dl dt:has-text('ジャンル') + dd",
+        "table tr:has-text('ジャンル') td",
+      ];
+      
+      for (const selector of categorySelectors) {
+        try {
+          const categoryElement = page.locator(selector).first();
+          if (await categoryElement.isVisible({ timeout: 500 }).catch(() => false)) {
+            const categoryText = await categoryElement.textContent();
+            if (categoryText) {
+              result.category = categoryText.trim();
+              break;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to get category:", error);
+    }
+
+    // 電話番号を取得
+    try {
+      const phoneSelectors = [
+        ".shop-tel",
+        ".store-tel",
+        ".tel",
+        "[itemprop='telephone']",
+        "dl dt:has-text('電話番号') + dd",
+        "table tr:has-text('電話番号') td",
+      ];
+      
+      for (const selector of phoneSelectors) {
+        try {
+          const phoneElement = page.locator(selector).first();
+          if (await phoneElement.isVisible({ timeout: 500 }).catch(() => false)) {
+            const phoneText = await phoneElement.textContent();
+            if (phoneText) {
+              // 電話番号パターンを抽出
+              const phonePattern = /0\d{1,4}[-\s(]?\d{1,4}[-\s)]?\d{4}/;
+              const match = phoneText.match(phonePattern);
+              if (match) {
+                result.phone = match[0].replace(/[\s()]/g, "").replace(/(\d{2,4})(\d{4})(\d{4})/, "$1-$2-$3");
+                break;
+              }
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to get phone:", error);
+    }
+
+    // 営業時間を取得
+    try {
+      const businessHoursSelectors = [
+        ".shop-hours",
+        ".store-hours",
+        ".hours",
+        "[itemprop='openingHours']",
+        "dl dt:has-text('営業時間') + dd",
+        "table tr:has-text('営業時間') td",
+      ];
+      
+      for (const selector of businessHoursSelectors) {
+        try {
+          const hoursElement = page.locator(selector).first();
+          if (await hoursElement.isVisible({ timeout: 500 }).catch(() => false)) {
+            const hoursText = await hoursElement.textContent();
+            if (hoursText) {
+              result.business_hours = hoursText.trim();
+              break;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to get business hours:", error);
+    }
+
+    // 定休日を取得
+    try {
+      const holidaySelectors = [
+        ".shop-holiday",
+        ".store-holiday",
+        ".holiday",
+        "dl dt:has-text('定休日') + dd",
+        "table tr:has-text('定休日') td",
+      ];
+      
+      for (const selector of holidaySelectors) {
+        try {
+          const holidayElement = page.locator(selector).first();
+          if (await holidayElement.isVisible({ timeout: 500 }).catch(() => false)) {
+            const holidayText = await holidayElement.textContent();
+            if (holidayText) {
+              result.regular_holiday = holidayText.trim();
+              break;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to get regular holiday:", error);
+    }
+
+    // 交通手段を取得
+    try {
+      const transportSelectors = [
+        ".shop-access",
+        ".store-access",
+        ".access",
+        "dl dt:has-text('アクセス') + dd",
+        "dl dt:has-text('交通手段') + dd",
+        "table tr:has-text('アクセス') td",
+        "table tr:has-text('交通手段') td",
+      ];
+      
+      for (const selector of transportSelectors) {
+        try {
+          const transportElement = page.locator(selector).first();
+          if (await transportElement.isVisible({ timeout: 500 }).catch(() => false)) {
+            const transportText = await transportElement.textContent();
+            if (transportText) {
+              result.transport = transportText.trim();
+              break;
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to get transport:", error);
+    }
+
+    // 公式サイトを取得
+    try {
+      const websiteSelectors = [
+        "a:has-text('公式サイト')",
+        "a:has-text('ホームページ')",
+        "a:has-text('公式HP')",
+        "[itemprop='url']",
+      ];
+      
+      for (const selector of websiteSelectors) {
+        try {
+          const websiteElement = page.locator(selector).first();
+          if (await websiteElement.isVisible({ timeout: 500 }).catch(() => false)) {
+            const href = await websiteElement.getAttribute("href");
+            if (href) {
+              try {
+                const urlObj = new URL(href, url);
+                result.website = urlObj.href;
+                break;
+              } catch {
+                result.website = href;
+                break;
+              }
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to get website:", error);
+    }
+
+    // フランチャイズ判定
+    try {
+      let isFranchise = false;
+
+      // 方法1: 店舗名にフランチャイズを示唆するキーワードが含まれているか
+      if (result.name) {
+        const name = result.name;
+        const franchiseKeywordPattern = /(支店|号店|チェーン)/;
+        const headStoreExcludePattern = /本店/;
+
+        if (franchiseKeywordPattern.test(name) && !headStoreExcludePattern.test(name)) {
+          isFranchise = true;
+        } else {
+          const branchPattern = /\s+[^\s]+店$/;
+          if (branchPattern.test(name)) {
+            isFranchise = true;
+          } else {
+            const storePattern = /店$/;
+            const headStoreOnlyPattern = /^[^店]*本店$/;
+            
+            if (storePattern.test(name) && !headStoreOnlyPattern.test(name)) {
+              isFranchise = true;
+            }
+          }
+        }
+      }
+
+      result.is_franchise = isFranchise;
+    } catch (error) {
+      console.warn("Failed to detect franchise:", error);
+      result.is_franchise = false;
+    }
+
+    // テイクアウト可否を取得
+    try {
+      let takeoutAvailable = false;
+
+      // 方法1: ページ内のテキストから判定
+      const pageText = await page.textContent("body");
+      if (pageText) {
+        const takeoutKeywords = [
+          "テイクアウト",
+          "テークアウト",
+          "takeout",
+          "take-out",
+          "持ち帰り",
+          "お持ち帰り",
+        ];
+        const takeoutPattern = new RegExp(takeoutKeywords.join("|"), "i");
+        if (takeoutPattern.test(pageText)) {
+          takeoutAvailable = true;
+        }
+      }
+
+      // 方法2: 特定のセレクタから判定
+      if (!takeoutAvailable) {
+        const takeoutSelectors = [
+          ':has-text("テイクアウト")',
+          ':has-text("テークアウト")',
+          ':has-text("持ち帰り")',
+          '[class*="takeout"]',
+          '[class*="take-out"]',
+        ];
+
+        for (const selector of takeoutSelectors) {
+          try {
+            const element = page.locator(selector).first();
+            if (await element.isVisible({ timeout: 500 }).catch(() => false)) {
+              takeoutAvailable = true;
+              break;
+            }
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      result.takeout_available = takeoutAvailable;
+    } catch (error) {
+      console.warn("Failed to detect takeout availability:", error);
+      result.takeout_available = false;
+    }
+
+    // デリバリー可否を取得
+    try {
+      let deliveryAvailable = false;
+      const deliveryServices: string[] = [];
+
+      // 方法1: ページ内のテキストから判定
+      const pageText = await page.textContent("body");
+      if (pageText) {
+        const deliveryKeywords = [
+          "ubereats", "Uber Eats", "ウーバーイーツ",
+          "出前館", "demaecan", "demae-can",
+          "楽天デリバリー", "楽天デリ",
+          "デリバリー", "delivery",
+          "menu", "メニュー",
+        ];
+        const deliveryPattern = new RegExp(deliveryKeywords.join("|"), "i");
+        if (deliveryPattern.test(pageText)) {
+          deliveryAvailable = true;
+          
+          // どのサービスかを特定
+          if (/ubereats|Uber Eats|ウーバーイーツ/i.test(pageText)) {
+            deliveryServices.push("Uber Eats");
+          }
+          if (/出前館|demaecan|demae-can/i.test(pageText)) {
+            deliveryServices.push("出前館");
+          }
+          if (/楽天デリバリー|楽天デリ/i.test(pageText)) {
+            deliveryServices.push("楽天デリバリー");
+          }
+        }
+      }
+
+      // 方法2: 特定のセレクタから判定
+      if (!deliveryAvailable) {
+        const deliverySelectors = [
+          ':has-text("Uber Eats")',
+          ':has-text("ウーバーイーツ")',
+          ':has-text("出前館")',
+          ':has-text("楽天デリバリー")',
+          ':has-text("デリバリー")',
+          '[class*="delivery"]',
+          '[class*="ubereats"]',
+          '[href*="ubereats"]',
+          '[href*="demaecan"]',
+          '[href*="demae-can"]',
+        ];
+
+        for (const selector of deliverySelectors) {
+          try {
+            const element = page.locator(selector).first();
+            if (await element.isVisible({ timeout: 500 }).catch(() => false)) {
+              deliveryAvailable = true;
+              
+              // リンクからサービス名を取得
+              const href = await element.getAttribute("href").catch(() => null);
+              if (href) {
+                if (href.includes("ubereats")) {
+                  deliveryServices.push("Uber Eats");
+                } else if (href.includes("demaecan") || href.includes("demae-can")) {
+                  deliveryServices.push("出前館");
+                } else if (href.includes("rakuten") || href.includes("楽天")) {
+                  deliveryServices.push("楽天デリバリー");
+                }
+              }
+              break;
+            }
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      // 方法3: リンクから判定
+      if (!deliveryAvailable) {
+        const deliveryLinks = await page.locator('a[href*="ubereats"], a[href*="demaecan"], a[href*="demae-can"], a[href*="menu"]').all();
+        if (deliveryLinks.length > 0) {
+          deliveryAvailable = true;
+          for (const link of deliveryLinks) {
+            try {
+              const href = await link.getAttribute("href");
+              if (href) {
+                if (href.includes("ubereats")) {
+                  deliveryServices.push("Uber Eats");
+                } else if (href.includes("demaecan") || href.includes("demae-can")) {
+                  deliveryServices.push("出前館");
+                } else if (href.includes("rakuten") || href.includes("楽天")) {
+                  deliveryServices.push("楽天デリバリー");
+                }
+              }
+            } catch {
+              continue;
+            }
+          }
+        }
+      }
+
+      result.delivery_available = deliveryAvailable;
+      result.delivery_services = deliveryServices.length > 0 ? deliveryServices : undefined;
+    } catch (error) {
+      console.warn("Failed to detect delivery availability:", error);
+      result.delivery_available = false;
+    }
+
+    await context.close();
+    return result;
+  } catch (error) {
+    console.error("Scraping error:", error);
+    throw error;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
+/**
  * UberEatsの店舗詳細ページから情報を取得
  * ネットワークリクエストを傍受してAPIレスポンスから直接データを取得
  * 
@@ -1765,6 +2300,218 @@ export async function scrapeUbereatsStore(url: string): Promise<ScrapingResult> 
 }
 
 /**
+ * Google Mapsの店舗詳細ページからテイクアウト可否とデリバリー可否を取得
+ * 
+ * @param url Google Mapsの店舗URL
+ * @returns スクレイピング結果（テイクアウト可否とデリバリー可否のみ）
+ */
+export async function scrapeGoogleMapsPlace(url: string): Promise<ScrapingResult> {
+  let browser: Browser | null = null;
+
+  try {
+    // ブラウザを起動
+    browser = await chromium.launch({
+      headless: true,
+    });
+
+    const context = await browser.newContext({
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    });
+
+    const page = await context.newPage();
+
+    // ページにアクセス
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+    // 基本情報を取得
+    const result: ScrapingResult = {
+      url: url,
+    };
+
+    // ページが完全に読み込まれるまで待機
+    await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(3000);
+
+    // テイクアウト可否を取得
+    try {
+      let takeoutAvailable = false;
+
+      // 方法1: ページ内のテキストから判定
+      const pageText = await page.textContent("body");
+      if (pageText) {
+        const takeoutKeywords = [
+          "テイクアウト",
+          "テークアウト",
+          "takeout",
+          "take-out",
+          "take out",
+          "持ち帰り",
+          "お持ち帰り",
+          "テイクアウト可",
+          "テイクアウト対応",
+        ];
+        const takeoutPattern = new RegExp(takeoutKeywords.join("|"), "i");
+        if (takeoutPattern.test(pageText)) {
+          takeoutAvailable = true;
+        }
+      }
+
+      // 方法2: 特定のセレクタから判定
+      if (!takeoutAvailable) {
+        const takeoutSelectors = [
+          ':has-text("テイクアウト")',
+          ':has-text("テークアウト")',
+          ':has-text("持ち帰り")',
+          '[class*="takeout"]',
+          '[class*="take-out"]',
+          '[aria-label*="takeout"]',
+          '[aria-label*="テイクアウト"]',
+        ];
+
+        for (const selector of takeoutSelectors) {
+          try {
+            const element = page.locator(selector).first();
+            if (await element.isVisible({ timeout: 500 }).catch(() => false)) {
+              takeoutAvailable = true;
+              break;
+            }
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      result.takeout_available = takeoutAvailable;
+    } catch (error) {
+      console.warn("Failed to detect takeout availability from Google Maps:", error);
+      result.takeout_available = false;
+    }
+
+    // デリバリー可否を取得
+    try {
+      let deliveryAvailable = false;
+      const deliveryServices: string[] = [];
+
+      // 方法1: ページ内のテキストから判定
+      const pageText = await page.textContent("body");
+      if (pageText) {
+        const deliveryKeywords = [
+          "ubereats", "Uber Eats", "ウーバーイーツ",
+          "出前館", "demaecan", "demae-can",
+          "楽天デリバリー", "楽天デリ",
+          "デリバリー", "delivery",
+          "menu", "メニュー",
+          "デリバリー可",
+          "デリバリー対応",
+        ];
+        const deliveryPattern = new RegExp(deliveryKeywords.join("|"), "i");
+        if (deliveryPattern.test(pageText)) {
+          deliveryAvailable = true;
+          
+          // どのサービスかを特定
+          if (/ubereats|Uber Eats|ウーバーイーツ/i.test(pageText)) {
+            deliveryServices.push("Uber Eats");
+          }
+          if (/出前館|demaecan|demae-can/i.test(pageText)) {
+            deliveryServices.push("出前館");
+          }
+          if (/楽天デリバリー|楽天デリ/i.test(pageText)) {
+            deliveryServices.push("楽天デリバリー");
+          }
+        }
+      }
+
+      // 方法2: 特定のセレクタから判定
+      if (!deliveryAvailable) {
+        const deliverySelectors = [
+          ':has-text("Uber Eats")',
+          ':has-text("ウーバーイーツ")',
+          ':has-text("出前館")',
+          ':has-text("楽天デリバリー")',
+          ':has-text("デリバリー")',
+          '[class*="delivery"]',
+          '[class*="ubereats"]',
+          '[href*="ubereats"]',
+          '[href*="demaecan"]',
+          '[href*="demae-can"]',
+          '[aria-label*="delivery"]',
+          '[aria-label*="デリバリー"]',
+        ];
+
+        for (const selector of deliverySelectors) {
+          try {
+            const element = page.locator(selector).first();
+            if (await element.isVisible({ timeout: 500 }).catch(() => false)) {
+              deliveryAvailable = true;
+              
+              // リンクからサービス名を取得
+              const href = await element.getAttribute("href").catch(() => null);
+              if (href) {
+                if (href.includes("ubereats")) {
+                  deliveryServices.push("Uber Eats");
+                } else if (href.includes("demaecan") || href.includes("demae-can")) {
+                  deliveryServices.push("出前館");
+                } else if (href.includes("rakuten") || href.includes("楽天")) {
+                  deliveryServices.push("楽天デリバリー");
+                }
+              }
+              break;
+            }
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      // 方法3: リンクから判定
+      if (!deliveryAvailable) {
+        const deliveryLinks = await page.locator('a[href*="ubereats"], a[href*="demaecan"], a[href*="demae-can"], a[href*="menu"]').all();
+        if (deliveryLinks.length > 0) {
+          deliveryAvailable = true;
+          for (const link of deliveryLinks) {
+            try {
+              const href = await link.getAttribute("href");
+              if (href) {
+                if (href.includes("ubereats")) {
+                  deliveryServices.push("Uber Eats");
+                } else if (href.includes("demaecan") || href.includes("demae-can")) {
+                  deliveryServices.push("出前館");
+                } else if (href.includes("rakuten") || href.includes("楽天")) {
+                  deliveryServices.push("楽天デリバリー");
+                }
+              }
+            } catch {
+              continue;
+            }
+          }
+        }
+      }
+
+      result.delivery_available = deliveryAvailable;
+      result.delivery_services = deliveryServices.length > 0 ? deliveryServices : undefined;
+    } catch (error) {
+      console.warn("Failed to detect delivery availability from Google Maps:", error);
+      result.delivery_available = false;
+    }
+
+    await context.close();
+    return result;
+  } catch (error) {
+    console.error("Google Maps scraping error:", error);
+    // エラーが発生しても空の結果を返す（Apifyのデータは保持される）
+    return {
+      url: url,
+      takeout_available: false,
+      delivery_available: false,
+    };
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
+/**
  * UberEatsのURLを正規化（クエリパラメータを削除）
  * 例: https://www.ubereats.com/jp/store/xxx?diningMode=DELIVERY&mod=... 
  *  → https://www.ubereats.com/jp/store/xxx
@@ -1814,6 +2561,11 @@ export async function scrapeUrl(url: string): Promise<ScrapingResult> {
     // URLを正規化してからスクレイピング
     const normalizedUrl = normalizeUbereatsUrl(url);
     return await scrapeUbereatsStore(normalizedUrl);
+  }
+
+  // グルナビの場合
+  if (hostname.includes("gnavi.co.jp") || hostname.includes("r.gnavi.co.jp")) {
+    return await scrapeGnaviStore(url);
   }
 
   // その他のサイトの場合（汎用スクレイピング）

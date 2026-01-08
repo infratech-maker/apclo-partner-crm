@@ -14,6 +14,57 @@
 
 ---
 
+## [0.2.0] - 2025-01-08
+
+### 追加
+
+#### AI検索とプロジェクト管理機能
+- **AI検索機能**: ベクトル検索による自然言語でのリード検索
+  - `searchMasterLeadsByAI` Server Action: OpenAI Embedding APIを使用したベクトル検索
+  - `AISearchDialog` コンポーネント: 検索UIと結果表示
+  - pgvector拡張を使用したコサイン類似度検索
+
+- **プロジェクト（営業リスト）機能**
+  - `Project` モデルの追加: 営業リストを管理するコンテナ
+  - `Lead.projectId` フィールド追加: プロジェクトへの所属関係
+  - `createProjectFromSearch` Server Action: AI検索結果からプロジェクトを作成
+  - プロジェクト一覧ページ (`/dashboard/projects`): カード形式での一覧表示
+  - プロジェクト詳細ページ (`/dashboard/projects/[projectId]`): リード一覧テーブル表示
+  - サイドバーに「Projects (プロジェクト)」メニューを追加
+
+#### Google Maps収集機能（Apify統合）
+- Apify Webhook統合: `compass/crawler-google-places` Actorとの連携
+- `startGoogleMapsScraping` Server Action: Google Mapsからの店舗情報収集
+- `GoogleMapsScraperDialog` コンポーネント: 収集UI
+- レビュー数・評価の取得対応
+- MasterLeadへの自動登録と重複チェック
+
+#### RAG実装 Phase 2: データ埋め込みバッチ処理
+- `generate-embeddings.ts` スクリプト: MasterLeadデータのベクトル化
+- `generateEmbedding` 関数: OpenAI `text-embedding-3-small` を使用
+- `LeadVector` テーブルへのバッチ保存
+- レート制限対策（バッチ処理と待機時間）
+
+#### バックアップ機能の強化
+- Slack通知機能: バックアップ成功/失敗時に通知
+- `backup-leads.ts` スクリプトの改善
+- バックアップファイルの世代管理（2世代保存）
+
+#### UIコンポーネント
+- Toast通知システム (`shadcn/ui`): 成功/エラー通知
+- Dialog、Button、Input、Label、Selectコンポーネントの追加
+
+### 変更
+- `docker-compose.yml`: PostgreSQLイメージを `pgvector/pgvector:pg16` に変更（pgvector拡張対応）
+- Prismaスキーマ: `Lead` モデルに `projectId` フィールドを追加（Optional、既存データ移行対応）
+- `Tenant` モデル: `projects` リレーションを追加
+
+### インフラ
+- pgvector拡張の有効化
+- ベクトル検索用インデックスの追加
+
+---
+
 ## [0.3.0] - 2024-12-19
 
 ### 追加

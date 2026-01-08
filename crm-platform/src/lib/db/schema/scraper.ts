@@ -63,12 +63,15 @@ export const scrapingJobs = pgTable("scraping_jobs", {
  */
 export const leads = pgTable("leads", {
   id: uuid("id").defaultRandom().primaryKey(),
-  tenantId: uuid("tenant_id")
+  tenantId: uuid("tenantId")
     .references(() => tenants.id, { onDelete: "cascade" })
     .notNull(), // マルチテナント対応: テナントID
   
   // スクレイピングジョブとの関連
-  scrapingJobId: uuid("scraping_job_id").references(() => scrapingJobs.id, { onDelete: "set null" }),
+  scrapingJobId: uuid("scrapingJobId").references(() => scrapingJobs.id, { onDelete: "set null" }),
+  
+  // MasterLeadとの関連（必須）
+  masterLeadId: text("masterLeadId").notNull(), // MasterLeadのID（CUID形式）
   
   // リード情報
   source: text("source").notNull(), // 取得元URL
@@ -79,8 +82,8 @@ export const leads = pgTable("leads", {
   
   // メタデータ
   notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export const scrapingJobsRelations = relations(scrapingJobs, ({ one, many }) => ({

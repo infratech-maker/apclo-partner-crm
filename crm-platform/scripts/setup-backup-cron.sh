@@ -7,7 +7,19 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-CRON_JOB="0 2 * * * cd $PROJECT_DIR && npm run backup:leads >> logs/backup-leads.log 2>&1"
+
+# npmとnodeのパスを取得
+NPM_PATH=$(which npm)
+NODE_PATH=$(which node)
+
+# PATHを設定（nvmを使用している場合も考慮）
+if [ -n "$NVM_DIR" ]; then
+  # nvmを使用している場合
+  CRON_JOB="0 2 * * * source $NVM_DIR/nvm.sh && cd $PROJECT_DIR && npm run backup:leads >> logs/backup-leads.log 2>&1"
+else
+  # 通常のnpmを使用している場合
+  CRON_JOB="0 2 * * * PATH=\"$PATH\" cd $PROJECT_DIR && $NPM_PATH run backup:leads >> logs/backup-leads.log 2>&1"
+fi
 
 echo "📋 Leadsデータのデイリーバックアップをcronに設定します"
 echo ""
@@ -42,4 +54,7 @@ echo "💡 cronジョブを削除する場合:"
 echo "   crontab -e"
 echo "   または"
 echo "   crontab -l | grep -v 'backup:leads' | crontab -"
+
+
+
 

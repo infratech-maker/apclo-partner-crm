@@ -10,6 +10,7 @@ import {
   Settings,
   FileText,
   Database,
+  Folder,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,19 +32,24 @@ const menuItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
+    name: "Master Leads (マスターリード)",
+    href: "/dashboard/master-leads",
+    icon: Database,
+  },
+  {
     name: "Leads (案件)",
     href: "/dashboard/leads",
     icon: FileText,
   },
   {
+    name: "Projects (プロジェクト)",
+    href: "/dashboard/projects",
+    icon: Folder,
+  },
+  {
     name: "Customers",
     href: "/dashboard/customers",
     icon: Users,
-  },
-  {
-    name: "Master Leads (マスターリード)",
-    href: "/dashboard/master-leads",
-    icon: Database,
   },
   {
     name: "Users (ユーザー管理)",

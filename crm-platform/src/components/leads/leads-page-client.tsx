@@ -6,6 +6,8 @@ import { LeadTable } from "./lead-table";
 import { LeadDetailSheet } from "./lead-detail-sheet";
 import { LeadSearch } from "./lead-search";
 import { LeadFilter } from "./lead-filter";
+import { GoogleMapsScraperDialog } from "./google-maps-scraper-dialog";
+import { AISearchDialog } from "./ai-search-dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
@@ -171,12 +173,16 @@ export function LeadsPageClient({
             合計 {total} 件のリード
           </p>
         </div>
-        <Link href="/dashboard/leads/import">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            CSVインポート
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <AISearchDialog />
+          <GoogleMapsScraperDialog />
+          <Link href="/dashboard/leads/import">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              CSVインポート
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* 検索・フィルター */}

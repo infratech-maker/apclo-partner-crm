@@ -3,6 +3,7 @@ from flask import Flask, send_from_directory, jsonify, request
 from extensions import db, migrate
 from config import config as config_dict
 import os
+import io
 
 
 def create_app(config_name='default'):
@@ -199,23 +200,68 @@ def register_routes(app):
     
     @app.route("/api/categories")
     def get_categories():
-        """カテゴリリスト取得API"""
+        """カテゴリリスト取得API（データベースから実際の値を取得し、純粋なカテゴリー名のみを抽出）"""
         try:
-            ALL_CATEGORIES = [
-                "和食", "寿司", "ラーメン", "うどん", "そば", "焼肉", "焼鳥", "居酒屋",
-                "イタリアン", "フレンチ", "中華", "韓国料理", "タイ料理", "インド料理",
-                "カフェ", "パン", "スイーツ", "バー", "パブ"
-            ]
-            CATEGORIES = {
-                "和食": ["和食", "寿司", "ラーメン", "うどん", "そば", "焼肉", "焼鳥", "居酒屋"],
-                "洋食": ["イタリアン", "フレンチ"],
-                "アジア": ["中華", "韓国料理", "タイ料理", "インド料理"],
-                "その他": ["カフェ", "パン", "スイーツ", "バー", "パブ"]
-            }
-            return jsonify({
-                "categories": ALL_CATEGORIES,
-                "category_groups": CATEGORIES
-            })
+            from models import Store
+            from sqlalchemy.exc import OperationalError
+            import re
+            
+            def extract_category_names(category_value):
+                """カテゴリー値から純粋なカテゴリー名を抽出
+                例: 'あざみ野駅 100m / ドーナツ' -> ['ドーナツ']
+                例: 'あびこ駅 313m / カフェ、スイーツ' -> ['カフェ', 'スイーツ']
+                """
+                if not category_value:
+                    return []
+                
+                # 「/」で分割して、最後の部分（カテゴリー名部分）を取得
+                if '/' in category_value:
+                    parts = category_value.split('/')
+                    category_part = parts[-1].strip()
+                else:
+                    category_part = category_value.strip()
+                
+                # カンマ区切りのカテゴリーを分割
+                categories = [cat.strip() for cat in category_part.split('、') if cat.strip()]
+                
+                # さらにカンマでも分割（「カフェ, スイーツ」形式に対応）
+                result = []
+                for cat in categories:
+                    result.extend([c.strip() for c in cat.split(',') if c.strip()])
+                
+                return result
+            
+            try:
+                # データベースから実際のカテゴリー値を取得
+                categories_query = db.session.query(Store.category).distinct().filter(
+                    Store.category.isnot(None),
+                    Store.category != ""
+                ).order_by(Store.category)
+                
+                # すべてのカテゴリー値を取得
+                all_category_values = [row[0] for row in categories_query.all() if row[0]]
+                
+                # 各カテゴリー値から純粋なカテゴリー名を抽出
+                extracted_categories = set()
+                for category_value in all_category_values:
+                    category_names = extract_category_names(category_value)
+                    extracted_categories.update(category_names)
+                
+                # ソートしてリストに変換
+                categories_list = sorted(extracted_categories)
+                
+                return jsonify({
+                    "categories": categories_list,
+                    "category_groups": {}  # グループ化は不要なので空オブジェクト
+                })
+            except OperationalError as e:
+                # テーブル未作成時は空リストを返す
+                if "no such table" in str(e).lower():
+                    return jsonify({
+                        "categories": [],
+                        "category_groups": {}
+                    })
+                raise
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     
@@ -311,21 +357,7 @@ def register_routes(app):
                 Store.city != "",
             ).scalar() or 0
 
-            # 都市別店舗数（上位20都市）
-            city_rows = (
-                db.session.query(
-                    Store.city,
-                    func.count(func.distinct(Store.store_id)).label("cnt"),
-                )
-                .filter(Store.city.isnot(None), Store.city != "")
-                .group_by(Store.city)
-                .order_by(func.count(func.distinct(Store.store_id)).desc())
-                .limit(20)
-                .all()
-            )
-            city_stats = {city: count for city, count in city_rows if city}
-
-            # 都道府県・エリア別統計用の定義（/api/areas, /api/prefectures と同等）
+            # 都道府県・エリア別統計用の定義（先に定義が必要）
             PREFECTURES = [
                 "北海道",
                 "青森",
@@ -375,6 +407,74 @@ def register_routes(app):
                 "鹿児島",
                 "沖縄",
             ]
+            
+            # 市区町村別店舗数（上位20市区町村）
+            # 住所から市区町村を抽出して集計
+            import re
+            
+            def extract_city_from_address(address):
+                """住所から市区町村を抽出"""
+                if not address:
+                    return None
+                
+                addr = address
+                # 都道府県名を除去
+                for pref in PREFECTURES:
+                    if addr.startswith(pref):
+                        addr = addr[len(pref):].lstrip('都府県')
+                        break
+                
+                # 駅名と距離情報を除去（例: "池袋駅 396m"）
+                addr = re.sub(r'[^都府県市区町村]*駅\s*\d+m\s*/?', '', addr)
+                
+                # カテゴリー情報を除去（例: "/ カテゴリー"）
+                addr = re.sub(r'/\s*[^/]+$', '', addr)
+                
+                # 市区町村パターンを抽出
+                # パターン1: "XX区", "XX市", "XX町", "XX村"（都道府県名の後）
+                match = re.search(r'([^都府県市区町村]+[市区町村])', addr)
+                if match:
+                    city = match.group(1).strip()
+                    # 余分な文字を除去
+                    city = re.sub(r'^\s*[、,]\s*', '', city)
+                    if city and len(city) > 1 and not city.startswith('駅'):
+                        return city
+                
+                # パターン2: "XX郡XX町", "XX郡XX村"
+                match = re.search(r'([^都府県市区町村]+郡[^市区町村]+[町村])', addr)
+                if match:
+                    city = match.group(1).strip()
+                    if city and len(city) > 1:
+                        return city
+                
+                return None
+            
+            # 住所から市区町村を抽出して集計
+            address_rows = db.session.query(Store.address, Store.city).filter(
+                Store.address.isnot(None),
+                Store.address != "",
+            ).all()
+            
+            city_stats = {}
+            for addr, orig_city in address_rows:
+                # まず住所から市区町村を抽出
+                extracted_city = extract_city_from_address(addr)
+                
+                # 抽出できなかった場合は、元のcityフィールドを使用
+                # ただし、都道府県名の場合は除外
+                if not extracted_city:
+                    if orig_city and orig_city not in PREFECTURES:
+                        extracted_city = orig_city
+                    else:
+                        continue
+                
+                if extracted_city:
+                    city_stats[extracted_city] = city_stats.get(extracted_city, 0) + 1
+            
+            # 店舗数の降順でソートして上位20を取得
+            city_stats = dict(sorted(city_stats.items(), key=lambda x: x[1], reverse=True)[:20])
+
+            # 都道府県・エリア別統計用の定義（既に上で定義済み）
 
             AREA_PREFECTURES = {
                 "北海道": ["北海道"],
@@ -387,17 +487,66 @@ def register_routes(app):
                 "九州": ["福岡", "佐賀", "長崎", "熊本", "大分", "宮崎", "鹿児島", "沖縄"],
             }
 
-            # 住所から都道府県を判定して集計
+            # 都道府県を判定して集計（住所と都市名の両方をチェック）
             prefecture_stats = {p: 0 for p in PREFECTURES}
-            address_rows = db.session.query(Store.address).filter(
-                Store.address.isnot(None),
-                Store.address != "",
+            
+            # 都市名から都道府県へのマッピング
+            CITY_TO_PREFECTURE = {
+                "東京": "東京",
+                "神奈川": "神奈川",
+                "千葉": "千葉",
+                "埼玉": "埼玉",
+                "大阪": "大阪",
+                "神戸": "兵庫",
+                "京都": "京都",
+                "横浜": "神奈川",
+                "川崎": "神奈川",
+                "相模原": "神奈川",
+                "さいたま": "埼玉",
+                "川口": "埼玉",
+                "船橋": "千葉",
+                "市川": "千葉",
+                "松山": "愛媛",
+                "高知": "高知",
+                "福島": "福島",
+                "金沢": "石川",
+                "宮崎": "宮崎",
+                "鳥取": "鳥取",
+            }
+            
+            # 店舗データを取得（住所と都市名の両方を使用）
+            store_rows = db.session.query(Store.address, Store.city).filter(
+                db.or_(
+                    Store.address.isnot(None),
+                    Store.city.isnot(None)
+                ),
+                db.or_(
+                    Store.address != "",
+                    Store.city != ""
+                )
             ).all()
-            for (addr,) in address_rows:
-                for pref in PREFECTURES:
-                    if addr.startswith(pref):
+            
+            for addr, city in store_rows:
+                matched = False
+                
+                # まず都市名から都道府県を判定
+                if city:
+                    # 都市名が都道府県名と一致する場合
+                    if city in PREFECTURES:
+                        prefecture_stats[city] += 1
+                        matched = True
+                    # 都市名から都道府県をマッピング
+                    elif city in CITY_TO_PREFECTURE:
+                        pref = CITY_TO_PREFECTURE[city]
                         prefecture_stats[pref] += 1
-                        break
+                        matched = True
+                
+                # 都市名でマッチしなかった場合、住所から判定
+                if not matched and addr:
+                    for pref in PREFECTURES:
+                        if addr.startswith(pref):
+                            prefecture_stats[pref] += 1
+                            break
 
             # エリア別に集計
             area_stats = {}
@@ -525,6 +674,80 @@ def register_routes(app):
         """保存済みリスト取得API（ダミー）"""
         return jsonify({"lists": []})
     
+    @app.route("/api/login", methods=['POST'])
+    def login_api():
+        """ログインAPI"""
+        try:
+            from models import User
+            from werkzeug.security import check_password_hash
+            from sqlalchemy.exc import OperationalError
+            from datetime import datetime
+            
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({"error": "リクエストボディが必要です"}), 400
+            
+            partner_code = data.get('partner_code', '').strip()
+            password = data.get('password', '')
+            
+            if not partner_code or not password:
+                return jsonify({"error": "パートナーIDとパスワードは必須です"}), 400
+            
+            try:
+                # ユーザーを検索
+                user = db.session.query(User).filter(
+                    User.partner_code == partner_code
+                ).first()
+                
+                if not user:
+                    return jsonify({"error": "パートナーIDまたはパスワードが正しくありません"}), 401
+                
+                # ユーザーが無効な場合
+                if not user.is_active:
+                    return jsonify({"error": "このアカウントは無効です"}), 403
+                
+                # パスワードを検証
+                if not check_password_hash(user.password_hash, password):
+                    return jsonify({"error": "パートナーIDまたはパスワードが正しくありません"}), 401
+                
+                # 最終ログイン日時を更新
+                user.last_login_at = datetime.utcnow()
+                db.session.commit()
+                
+                # ログイン成功
+                return jsonify({
+                    "success": True,
+                    "user": {
+                        "user_id": str(user.user_id),
+                        "partner_code": user.partner_code,
+                        "name": user.name,
+                        "user_type": user.user_type,
+                        "is_admin": user.user_type == "admin",
+                    }
+                }), 200
+                
+            except OperationalError as e:
+                if 'no such table' in str(e).lower():
+                    # テーブルが存在しない場合は開発モードとして許可
+                    # ただし、セキュリティ上、本番環境ではテーブルが必要
+                    return jsonify({
+                        "success": True,
+                        "user": {
+                            "partner_code": partner_code,
+                            "name": "開発ユーザー",
+                            "user_type": "partner",
+                            "is_admin": partner_code.upper() == "ADMIN",
+                        },
+                        "warning": "データベーステーブルが存在しません。開発モードで動作しています。"
+                    }), 200
+                raise
+                
+        except Exception as e:
+            import traceback
+            db.session.rollback()
+            return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+    
     @app.route("/api/admin/users", methods=['GET', 'POST'])
     def admin_users():
         """ユーザー管理API（GET: 一覧取得、POST: 新規作成）"""
@@ -633,9 +856,16 @@ def register_routes(app):
             from models import User
             from sqlalchemy.exc import OperationalError
             from werkzeug.security import generate_password_hash
+            import uuid
+            
+            # user_idをUUIDに変換
+            try:
+                user_id_uuid = uuid.UUID(user_id)
+            except (ValueError, TypeError):
+                return jsonify({"error": "無効なユーザーIDです"}), 400
             
             try:
-                user = db.session.query(User).filter(User.user_id == user_id).first()
+                user = db.session.query(User).filter(User.user_id == user_id_uuid).first()
                 
                 if not user:
                     return jsonify({"error": "ユーザーが見つかりません"}), 404
@@ -656,7 +886,7 @@ def register_routes(app):
                 if 'partner_code' in data and data['partner_code'] != user.partner_code:
                     existing = db.session.query(User).filter(
                         User.partner_code == data['partner_code'],
-                        User.user_id != user_id
+                        User.user_id != user_id_uuid
                     ).first()
                     
                     if existing:
@@ -705,6 +935,112 @@ def register_routes(app):
         except Exception as e:
             import traceback
             db.session.rollback()
+            return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
+    
+    @app.route("/api/export/excel")
+    def export_excel():
+        """ExcelエクスポートAPI"""
+        try:
+            from models import Store
+            from flask import Response
+            from sqlalchemy.exc import OperationalError
+            
+            try:
+                query = _build_store_query()
+                if query is None:
+                    try:
+                        from openpyxl import Workbook
+                        wb = Workbook()
+                        ws = wb.active
+                        ws.append(['店舗ID', '店舗名'])
+                        output = io.BytesIO()
+                        wb.save(output)
+                        output.seek(0)
+                        return Response(
+                            output.getvalue(),
+                            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            headers={'Content-Disposition': 'attachment; filename=stores_export.xlsx'}
+                        )
+                    except ImportError:
+                        return jsonify({"error": "openpyxlライブラリがインストールされていません。"}), 500
+                
+                stores = query.all()
+                
+                try:
+                    from openpyxl import Workbook
+                    from openpyxl.styles import Font, Alignment, PatternFill
+                    from openpyxl.utils import get_column_letter
+                    
+                    wb = Workbook()
+                    ws = wb.active
+                    ws.title = "店舗一覧"
+                    
+                    headers = [
+                        '店舗ID', '店舗名', '電話番号', 'ウェブサイト', '住所', 'カテゴリ',
+                        '評価', '都市', '開店日', '定休日', '交通アクセス', '営業時間',
+                        '公式アカウント', 'データソース'
+                    ]
+                    ws.append(headers)
+                    
+                    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                    header_font = Font(bold=True, color="FFFFFF")
+                    for cell in ws[1]:
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                    
+                    for store in stores:
+                        ws.append([
+                            store.store_id, store.name, store.phone, store.website,
+                            store.address, store.category, store.rating, store.city,
+                            store.opening_date, store.closed_day, store.transport,
+                            store.business_hours, store.official_account, store.data_source
+                        ])
+                    
+                    for column in ws.columns:
+                        max_length = 0
+                        column_letter = get_column_letter(column[0].column)
+                        for cell in column:
+                            try:
+                                if cell.value:
+                                    max_length = max(max_length, len(str(cell.value)))
+                            except:
+                                pass
+                        adjusted_width = min(max_length + 2, 50)
+                        ws.column_dimensions[column_letter].width = adjusted_width
+                    
+                    output = io.BytesIO()
+                    wb.save(output)
+                    output.seek(0)
+                    
+                    return Response(
+                        output.getvalue(),
+                        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        headers={'Content-Disposition': 'attachment; filename=stores_export.xlsx'}
+                    )
+                except ImportError:
+                    return jsonify({"error": "openpyxlライブラリがインストールされていません。"}), 500
+                    
+            except OperationalError as e:
+                if 'no such table' in str(e).lower():
+                    try:
+                        from openpyxl import Workbook
+                        wb = Workbook()
+                        ws = wb.active
+                        ws.append(['店舗ID', '店舗名'])
+                        output = io.BytesIO()
+                        wb.save(output)
+                        output.seek(0)
+                        return Response(
+                            output.getvalue(),
+                            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            headers={'Content-Disposition': 'attachment; filename=stores_export.xlsx'}
+                        )
+                    except ImportError:
+                        return jsonify({"error": "openpyxlライブラリがインストールされていません。"}), 500
+                raise
+        except Exception as e:
+            import traceback
             return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
     
     def _build_store_query():
@@ -766,12 +1102,24 @@ def register_routes(app):
                     Store.city.in_(cities),
                 )
             
-            # カテゴリフィルター
+            # カテゴリフィルター（部分一致検索に対応）
             if categories:
+                from sqlalchemy import or_
+                # 選択されたカテゴリーがデータベースのカテゴリー値に含まれているかチェック
+                # 例：「居酒屋」を選択した場合、「居酒屋」「松山市 / 居酒屋」などがマッチする
+                category_filters = []
+                for category in categories:
+                    # 完全一致または部分一致（カテゴリー値に選択値が含まれる）
+                    category_filters.append(
+                        or_(
+                            Store.category == category,
+                            Store.category.contains(category)
+                        )
+                    )
                 query = query.filter(
                     Store.category.isnot(None),
                     Store.category != "",
-                    Store.category.in_(categories),
+                    or_(*category_filters)
                 )
             
             # データソースフィルター

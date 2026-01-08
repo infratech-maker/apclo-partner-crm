@@ -126,6 +126,7 @@ model Tenant {
   customers               Customer[]
   leads                   Lead[]
   deals                   Deal[]
+  projects                Project[]
   kpiRecords              KpiRecord[]
   plRecords               PlRecord[]
   simulations             Simulation[]
@@ -516,6 +517,10 @@ model Lead {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
+  // Project relation (Optional: 既存データ移行のため)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   // Master Lead relation (必須)
   masterLeadId String
   masterLead   MasterLead @relation(fields: [masterLeadId], references: [id], onDelete: Cascade)
@@ -532,6 +537,7 @@ model Lead {
   @@index([scrapingJobId])
   @@index([organizationId])
   @@index([masterLeadId])
+  @@index([projectId])
   @@map("leads")
 }
 
@@ -664,6 +670,26 @@ model Simulation {
 }
 
 // ============================================
+// Project Management (営業リスト)
+// ============================================
+
+model Project {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String // プロジェクト名（例: "渋谷イタリアン"）
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leads  Lead[]
+
+  @@index([tenantId])
+  @@map("projects")
+}
+
+// ============================================
 // Master Lead Management
 // ============================================
 
@@ -680,12 +706,29 @@ model MasterLead {
   updatedAt DateTime @updatedAt
 
   // リレーション
-  leads Lead[]
+  leads      Lead[]
+  leadVector LeadVector?
 
   // インデックス（検索・重複チェック高速化）
   @@index([companyName])
   @@index([phone])
   @@map("master_leads")
+}
+
+// ============================================
+// Vector Search (RAG)
+// ============================================
+
+model LeadVector {
+  id           String                      @id @default(uuid())
+  masterLeadId String                      @unique
+  masterLead   MasterLead                  @relation(fields: [masterLeadId], references: [id], onDelete: Cascade)
+  content      String // ベクトル化したテキスト
+  embedding    Unsupported("vector(1536)") // OpenAI text-embedding-3-small の次元数
+  createdAt    DateTime                    @default(now())
+
+  @@index([masterLeadId])
+  @@map("lead_vectors")
 }
 
 // ============================================

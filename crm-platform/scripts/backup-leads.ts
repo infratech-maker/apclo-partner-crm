@@ -17,6 +17,54 @@ const BACKUP_DIR = path.join(process.cwd(), "backups", "leads");
 const MAX_GENERATIONS = 2; // 2世代保存
 
 /**
+ * Slack通知関数
+ */
+async function sendSlackNotification(message: string, color: "good" | "warning" | "danger" | "info" = "info") {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+  
+  if (!webhookUrl) {
+    console.warn("⚠️ SLACK_WEBHOOK_URLが設定されていません。Slack通知をスキップします。");
+    return;
+  }
+
+  try {
+    const colorMap = {
+      good: "#36a64f",
+      warning: "#ff9900",
+      danger: "#ff0000",
+      info: "#439fe0",
+    };
+
+    const payload = {
+      attachments: [
+        {
+          color: colorMap[color],
+          text: message,
+          footer: "Leads Backup Script",
+          ts: Math.floor(Date.now() / 1000),
+        },
+      ],
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      console.warn(`⚠️ Slack通知の送信に失敗しました: ${response.statusText}`);
+    } else {
+      console.log("✅ Slack通知を送信しました");
+    }
+  } catch (error) {
+    console.warn("⚠️ Slack通知の送信中にエラーが発生しました:", error);
+  }
+}
+
+/**
  * バックアップディレクトリを確保
  */
 function ensureBackupDirectory(): void {
@@ -128,8 +176,24 @@ async function backupLeads(): Promise<void> {
       const sizeMB = (stat.size / 1024 / 1024).toFixed(2);
       console.log(`   - ${backup} (${sizeMB} MB, ${format(stat.mtime, "yyyy-MM-dd HH:mm:ss")})`);
     }
+
+    // Slack通知を送信（成功）
+    const successMessage = `✅ Leadsデータのバックアップが完了しました\n\n` +
+      `📊 リード数: ${leads.length.toLocaleString()}件\n` +
+      `📁 ファイル: ${backupFileName}\n` +
+      `💾 ファイルサイズ: ${fileSizeMB} MB\n` +
+      `⏱️ 実行時間: ${elapsedTime}秒\n` +
+      `📦 保持世代数: ${existingBackups.length}世代`;
+    
+    await sendSlackNotification(successMessage, "good");
   } catch (error) {
     console.error("❌ バックアップ中にエラーが発生しました:", error);
+    
+    // Slack通知を送信（エラー）
+    const errorMessage = `❌ Leadsデータのバックアップ中にエラーが発生しました\n\n` +
+      `エラー内容: ${error instanceof Error ? error.message : String(error)}`;
+    
+    await sendSlackNotification(errorMessage, "danger");
     throw error;
   } finally {
     await prisma.$disconnect();
@@ -148,4 +212,7 @@ if (require.main === module) {
       process.exit(1);
     });
 }
+
+
+
 

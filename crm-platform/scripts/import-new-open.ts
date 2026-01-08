@@ -10,8 +10,10 @@ import { scrapingJobs, leads } from "../src/lib/db/schema";
 import { withTenant } from "../src/lib/db/tenant-helper";
 import { chromium, Browser } from "playwright";
 import { eq, sql, inArray } from "drizzle-orm";
+import { prisma } from "../src/lib/prisma";
 
-const MAX_PAGES = 100; // 最大ページ数（大幅拡大）
+const MAX_PAGES = 1000; // 最大ページ数（5000件収集を想定）
+const MAX_URLS = 5000; // 最大収集URL数
 const DELAY_MS = 3000; // ページ間の待機時間（マナー）- 電話番号収集と統一
 const PROGRESS_FILE = resolve(__dirname, "../logs/last-collected-page.txt"); // 進捗記録ファイル
 
@@ -200,7 +202,7 @@ async function importNewOpenStores() {
       }
 
       // 「次へ」ボタンをクリックしてページ遷移する方式
-      while (pageIndex <= MAX_PAGES) {
+      while (pageIndex <= MAX_PAGES && collectedUrls.length < MAX_URLS) {
         try {
           // 1. リストの読み込み待機
           try {
@@ -243,6 +245,14 @@ async function importNewOpenStores() {
           saveLastCollectedPage(pageIndex);
 
           // 3. 次のページへ遷移処理
+          if (collectedUrls.length >= MAX_URLS) {
+            console.log(`🏁 最大URL数（${MAX_URLS}件）に達したため終了します。`);
+            // 最大URL数に達した場合、進捗ファイルを保存
+            saveLastCollectedPage(pageIndex);
+            console.log(`📝 進捗ファイルを保存しました。次回はページ ${pageIndex + 1} から開始します。`);
+            break;
+          }
+          
           if (pageIndex >= MAX_PAGES) {
             console.log(`🏁 最大ページ数（${MAX_PAGES}）に達したため終了します。`);
             // 最大ページ数に達した場合、進捗ファイルをリセット（次回は最初から開始）
@@ -304,37 +314,57 @@ async function importNewOpenStores() {
         return;
       }
 
-      // 重複チェック: leadsテーブルに既に存在するURLを除外
-      console.log("🔍 既存リードとの重複チェック中...");
+      // 重複チェック: 既存リード、既存ジョブ、既存マスターリードをすべてチェック
+      console.log("🔍 既存データとの重複チェック中...");
+      
+      // 1. 既存リード（Leadテーブル）をチェック
       const existingLeads = collectedUrls.length > 0
         ? await db
             .select({ source: leads.source })
             .from(leads)
             .where(inArray(leads.source, collectedUrls))
         : [];
+      const existingLeadUrls = new Set(existingLeads.map((lead) => lead.source));
+      console.log(`  📋 既存リード: ${existingLeadUrls.size}件`);
 
-      const existingUrls = new Set(existingLeads.map((lead) => lead.source));
-      const newUrls = collectedUrls.filter((url) => !existingUrls.has(url));
-
-      console.log(`  ✅ 既存: ${existingUrls.size}件, 新規: ${newUrls.length}件`);
-
-      // ジョブ登録（重複防止付き）
-      console.log("📝 スクレイピングジョブを登録中...");
-      
-      // 既存のジョブを一括で取得（重複チェック用）
-      // inArrayを使うか、全件取得してフィルタリング
+      // 2. 既存スクレイピングジョブをチェック
       const allJobs = await db
         .select({ url: scrapingJobs.url })
         .from(scrapingJobs)
         .where(eq(scrapingJobs.tenantId, tenantId));
-      
       const existingJobUrls = new Set(allJobs.map((job) => job.url));
-      const urlsToRegister = newUrls.filter((url) => !existingJobUrls.has(url));
+      console.log(`  📋 既存ジョブ: ${existingJobUrls.size}件`);
 
-      console.log(`  ✅ 既存ジョブ: ${existingJobUrls.size}件, 新規登録: ${urlsToRegister.length}件`);
+      // 3. 既存マスターリード（MasterLeadテーブル）をチェック
+      const existingMasterLeads = collectedUrls.length > 0
+        ? await prisma.masterLead.findMany({
+            where: {
+              source: { in: collectedUrls },
+            },
+            select: { source: true },
+          })
+        : [];
+      const existingMasterLeadUrls = new Set(existingMasterLeads.map((ml) => ml.source));
+      console.log(`  📋 既存マスターリード: ${existingMasterLeadUrls.size}件`);
+
+      // 4. すべての既存URLを統合
+      const allExistingUrls = new Set([
+        ...existingLeadUrls,
+        ...existingJobUrls,
+        ...existingMasterLeadUrls,
+      ]);
+
+      // 5. 未収集のURLのみを抽出
+      const newUrls = collectedUrls.filter((url) => !allExistingUrls.has(url));
+
+      console.log(`  ✅ 既存合計: ${allExistingUrls.size}件, 新規（未収集）: ${newUrls.length}件`);
+
+      // ジョブ登録（未収集のURLのみ）
+      console.log("📝 スクレイピングジョブを登録中...");
+      const urlsToRegister = newUrls; // 既にフィルタリング済み
 
       let registered = 0;
-      let skipped = existingJobUrls.size;
+      let skipped = allExistingUrls.size;
 
       // バッチで登録（パフォーマンス向上）
       const BATCH_SIZE = 50;
@@ -346,7 +376,7 @@ async function importNewOpenStores() {
             batch.map((url) => ({
               tenantId: tenantId,
               url: url,
-              status: "pending" as const,
+              status: "PENDING" as const,
             }))
           );
           registered += batch.length;
@@ -358,7 +388,7 @@ async function importNewOpenStores() {
               await db.insert(scrapingJobs).values({
                 tenantId: tenantId,
                 url: url,
-                status: "pending",
+                status: "PENDING",
               });
               registered++;
             } catch (individualError) {
@@ -375,8 +405,8 @@ async function importNewOpenStores() {
 
       console.log("\n🎉 処理完了");
       console.log(`収集URL: ${collectedUrls.length}件`);
-      console.log(`既存リード: ${existingUrls.size}件`);
-      console.log(`新規ジョブ登録: ${registered}件`);
+      console.log(`既存データ（リード/ジョブ/マスターリード）: ${allExistingUrls.size}件`);
+      console.log(`新規ジョブ登録（未収集）: ${registered}件`);
       console.log(`スキップ: ${skipped}件`);
       console.log(`処理時間: ${minutes}分${seconds}秒`);
 
@@ -384,8 +414,8 @@ async function importNewOpenStores() {
       await sendSlackNotification(
         `✅ *処理完了*\n` +
         `収集URL: *${collectedUrls.length}件*\n` +
-        `既存リード: ${existingUrls.size}件\n` +
-        `新規ジョブ登録: *${registered}件*\n` +
+        `既存データ: ${allExistingUrls.size}件（リード/ジョブ/マスターリード）\n` +
+        `新規ジョブ登録（未収集）: *${registered}件*\n` +
         `スキップ: ${skipped}件\n` +
         `⏱️ 処理時間: ${minutes}分${seconds}秒`,
         registered > 0 ? "good" : "warning"

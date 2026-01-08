@@ -186,3 +186,6 @@ ps aux | grep "import-new-open" | grep -v grep | awk '{print $2}' | xargs kill -
 2. データベース接続を確認
 3. スキーマ変更が正常に適用されているか確認
 
+
+
+

@@ -118,11 +118,12 @@ export function MasterLeadsPageClient({
 
   return (
     <div className="space-y-6">
+      {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">マスターリード管理</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            名寄せされたリードのマスターデータを管理します
+          <h1 className="text-3xl font-bold">マスターリード管理</h1>
+          <p className="text-gray-600 mt-1">
+            合計 {total} 件のマスターリード
           </p>
         </div>
       </div>

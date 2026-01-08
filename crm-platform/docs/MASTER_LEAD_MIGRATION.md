@@ -140,3 +140,6 @@ const masterLead = await prisma.masterLead.findFirst({
 
 移行スクリプトは`scripts/migrate-to-master.ts`に保存されています。必要に応じて再実行できます（未紐付けのリードがある場合のみ処理されます）。
 
+
+
+

@@ -475,8 +475,8 @@
                 document.getElementById('phone').value = user.phone || '';
                 document.getElementById('organization').value = user.organization || '';
                 document.getElementById('user-type').value = user.user_type || 'partner';
-                document.getElementById('is-agency').checked = user.is_agency === 1;
-                document.getElementById('is-active').checked = user.is_active === 1;
+                document.getElementById('is-agency').checked = !!user.is_agency;
+                document.getElementById('is-active').checked = !!user.is_active;
                 document.getElementById('notes').value = user.notes || '';
                 
                 document.getElementById('user-modal').classList.remove('hidden');
@@ -530,7 +530,7 @@
         document.getElementById('user-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const userId = document.getElementById('user-id').value;
+            const userId = document.getElementById('user-id').value.trim();
             const formData = {
                 partner_code: document.getElementById('partner-code').value.trim().toUpperCase(),
                 name: document.getElementById('name').value.trim(),
@@ -553,7 +553,7 @@
             
             try {
                 let response;
-                if (userId) {
+                if (userId && userId.length > 0) {
                     // 更新
                     response = await fetch(`/api/admin/users/${userId}`, {
                         method: 'PUT',

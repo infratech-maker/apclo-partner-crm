@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  # PostgreSQL (Supabase互換)
+  # PostgreSQL (Supabase互換 + pgvector対応)
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: crm-postgres
     environment:
       POSTGRES_USER: postgres
