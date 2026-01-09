@@ -1,4 +1,4 @@
-# sales listApp
+# sales list App
 
 統合CRMプラットフォームとAvaloniaデスクトップアプリケーションの統合プロジェクト。
 
