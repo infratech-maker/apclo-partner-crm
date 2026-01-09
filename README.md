@@ -1,15 +1,15 @@
-# CallSenderApp
+# sales listApp
 
 統合CRMプラットフォームとAvaloniaデスクトップアプリケーションの統合プロジェクト。
 
 ## プロジェクト構成
 
-- **CallSenderApp**: Avalonia UI フレームワークを使用した .NET 8.0 デスクトップアプリケーション
+- **sales listApp**: Avalonia UI フレームワークを使用した .NET 8.0 デスクトップアプリケーション
 - **crm-platform**: Next.js 15 ベースの統合CRMプラットフォーム（Webアプリケーション）
 
 ## 技術スタック
 
-### CallSenderApp (.NET)
+### sales listApp (.NET)
 - **Framework**: .NET 8.0
 - **UI Framework**: Avalonia 11.3.0
 - **Platform**: Windows, macOS, Linux
