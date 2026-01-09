@@ -274,10 +274,17 @@ def register_routes(app):
             from sqlalchemy.exc import OperationalError
             
             # テーブルが存在するか確認
+            latest_update_str = None
             try:
                 # 全店舗数
                 total_stores = db.session.query(func.count(func.distinct(Store.store_id))).scalar() or 0
+                
+                # 最終更新日時を取得（最も新しいupdated_at）
+                latest_update = db.session.query(func.max(Store.updated_at)).scalar()
+                if latest_update:
+                    latest_update_str = latest_update.isoformat()
             except OperationalError as e:
+                # エラー時もlatest_update_strはNoneのまま
                 # テーブルが存在しない場合は0を返す
                 if 'no such table' in str(e).lower():
                     return jsonify({
@@ -291,6 +298,7 @@ def register_routes(app):
                         'with_website': 0,
                         'fully_completed': 0,
                         'fully_completed_with_opening': 0,
+                        'latest_update': None,
                     })
                 raise
                 
@@ -575,6 +583,7 @@ def register_routes(app):
                     "city_stats": city_stats,
                     "prefecture_stats": prefecture_stats,
                     "area_stats": area_stats,
+                    "latest_update": latest_update_str,
                 }
             )
         except Exception as e:
