@@ -37,17 +37,30 @@ JSON形式で、以下の構造になっています：
 
 ## ダウンロード方法
 
-### 方法1: Web経由でダウンロード
+### 方法1: Web経由でダウンロード（推奨）
 
-以下のURLにアクセスすると、最新のデータをダウンロードできます：
+以下のURLにアクセスすると、最新のデータをJSON形式でダウンロードできます：
 
 ```
 https://alica-perfumeless-ilse.ngrok-free.dev/api/export/json
 ```
 
-### 方法2: GitHubから直接ダウンロード
+このエンドポイントは、常に最新のデータベースから全店舗データを取得します。
 
-このリポジトリの `data/exports/` ディレクトリから最新のJSONファイルをダウンロードできます。
+### 方法2: ローカルファイルから取得
+
+最新のエクスポートファイルは以下の場所に保存されています：
+
+- **JSON形式**: `/Users/a/CallSenderApp/list-tool/stores_export_latest.json` (6.8MB)
+- **圧縮版**: `/Users/a/CallSenderApp/data/exports/stores_export_20260109.json.gz` (622KB)
+
+### 方法3: エクスポートスクリプトを使用
+
+```bash
+cd /Users/a/CallSenderApp/list-tool
+source venv/bin/activate
+python export_all_stores_json.py --output stores_export.json --config local
+```
 
 ## 更新履歴
 
